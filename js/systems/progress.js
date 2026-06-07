@@ -15,6 +15,23 @@ var DEFAULT_SAVE = {
   pityEpic: 0,
   pityLegendary: 0,
   totalPulls: 0,
+  // Phase 4 — Daily & Streak
+  lastLoginDate: '',        // 'YYYY-MM-DD' ของวันที่ login ล่าสุด
+  loginStreak: 0,           // จำนวนวันติดต่อกัน
+  streakRewardClaimed: [],  // วันที่ (YYYY-MM-DD) ที่รับรางวัล streak แล้ว
+  daily: {
+    date: '',               // วันที่ quest นี้เป็นของ (YYYY-MM-DD)
+    correctAnswers: 0,      // quest 1: ตอบถูก
+    floorsCleared: 0,       // quest 2: ไต่หอ
+    bossDefeated: 0,        // quest 3: สู้บอส
+    claimed: [],            // quest ids ที่รับรางวัลแล้ว ['q1','q2','q3']
+  },
+  weeklyBoss: {
+    weekStart: '',          // 'YYYY-MM-DD' ของวันจันทร์ที่เริ่ม week
+    totalDamage: 0,         // damage สะสมของผู้เล่นคนนี้
+    defeated: false,        // boss ตายแล้วหรือยัง (local simulation)
+    rewardClaimed: false,
+  },
 };
 
 function loadProgress() {

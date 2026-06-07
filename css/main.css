@@ -2,11 +2,15 @@
 
 html, body {
   width: 100%; height: 100%;
+  /* mobile: ใช้ dvh เพื่อหลีกเลี่ยง browser chrome ที่ทำให้ viewport เพี้ยน */
+  height: 100dvh;
   background: #0d0620;
   display: flex;
   justify-content: center;
   align-items: center;
   overflow: hidden;
+  /* ป้องกัน pull-to-refresh บน iOS */
+  overscroll-behavior: none;
   font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
 }
 
@@ -15,13 +19,22 @@ html, body {
   display: flex;
   justify-content: center;
   align-items: center;
+  /* ให้ container เต็ม viewport เสมอ เพื่อ canvas centering ถูกต้อง */
+  width: 100%;
+  height: 100%;
 }
 
 #battleCanvas {
   display: block;
-  image-rendering: pixelated;
+  /* ไม่ใช้ pixelated — ตัวอักษรและรูปทรงจะ blur ดูนุ่มกว่า */
+  image-rendering: auto;
   touch-action: none;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
   cursor: pointer;
-  border-radius: 12px;
-  box-shadow: 0 0 40px rgba(100, 60, 200, 0.4);
+  border-radius: 8px;
+  box-shadow: 0 0 30px rgba(100, 60, 200, 0.4);
+  /* ป้องกัน highlight สีน้ำเงินบน tap (iOS) */
+  -webkit-tap-highlight-color: transparent;
 }

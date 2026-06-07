@@ -113,6 +113,19 @@ function handleTowerTap(cx, cy, canvas) {
     return;
   }
 
+  // ── ปุ่ม Daily Quest ──
+  if (cx >= W / 2 - 55 && cx <= W / 2 + 55 && cy >= H - 38 && cy <= H - 6) {
+    cancelAnimationFrame(towerState.animId);
+    towerState._handlers.forEach(function(h) {
+      canvas.removeEventListener(h.type, h.fn);
+    });
+    DailyScene.start(canvas, towerState.save, function() {
+      // กลับมา tower หลังปิด daily panel
+      SCENE.switch('tower', canvas);
+    });
+    return;
+  }
+
   // ── floor cells ──
   var floor = hitTestFloor(cx, cy + towerState.scrollY, W);
   if (floor !== null && floor <= save.maxFloor) {
@@ -249,12 +262,17 @@ function renderTower(canvas, ctx) {
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
   ctx.fillText('✨ ปลุกเสก', 53, H - 16);
 
+  // ปุ่ม Daily Quest (กลาง footer)
+  ctx.fillStyle = '#0a3e1a';
+  towerRR(ctx, W/2 - 55, H-38, 110, 32, 8); ctx.fill();
+  ctx.strokeStyle = '#33cc66'; ctx.lineWidth = 1;
+  towerRR(ctx, W/2 - 55, H-38, 110, 32, 8); ctx.stroke();
+  ctx.fillStyle = '#7fff7f'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('📋 ภารกิจ', W/2, H - 16);
+
   // Crystal count
   ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 12px sans-serif';
   ctx.fillText('💎 ' + save.crystals, W - 50, H - 16);
-
-  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
-  ctx.fillText('คะแนน: ' + save.totalScore, W/2, H - 16);
   ctx.textAlign = 'left';
 
   // ── scroll hint (ครั้งแรก) ──────────────────────

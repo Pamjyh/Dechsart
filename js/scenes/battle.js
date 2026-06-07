@@ -3,7 +3,8 @@
 
 
 // ── State ────────────────────────────────────────────────────────
-const state = {
+// ใช้ var top-level เสมอ (Safari compat rule)
+var state = {
   floor: 1,
   hero: null,      // active hero (ธาตุตรง)
   party: [],        // array of hero objects (max 3)
@@ -31,9 +32,9 @@ const state = {
   currentOp: '+',
 };
 
-let canvas, ctx;
-let animId = null;
-let inputAbort = null;
+var canvas, ctx;
+var animId = null;
+var inputAbort = null;
 
 // ── Init ─────────────────────────────────────────────────────────
 function initBattle(canvasEl, floor, saveData) {
@@ -41,6 +42,8 @@ function initBattle(canvasEl, floor, saveData) {
   saveData = saveData || loadProgress();
   canvas = canvasEl;
   ctx    = canvas.getContext('2d');
+  // ลบ listener เก่าก่อน เพื่อป้องกัน resize handlers ซ้อนทับ
+  window.removeEventListener('resize', resizeCanvas);
   resizeCanvas();
   window.addEventListener('resize', resizeCanvas);
 
@@ -275,6 +278,9 @@ function onAnswerSelected(chosen) {
     spawnDamageNumber(canvas.width * 0.72, canvas.height * 0.25, dmg,
       type === 'correct_crit' ? '#FFD700' : '#FFF');
 
+    // Daily quest: นับตอบถูก
+    if (state.saveData) state.saveData = onCorrectAnswer(state.saveData);
+
     state.feedbackType  = type;
     state.feedbackTimer = type === 'correct_crit' ? 55 : 40;
     state.phase = 'feedback';
@@ -352,14 +358,23 @@ function spawnDamageNumber(x, y, value, color) {
 }
 
 // ── Layout helpers ───────────────────────────────────────────────
+// Layout zones (H=700):
+//   Boss HP:      y=35
+//   Boss sprite:  cy=H*0.20=140
+//   Element hint: y=H*0.38=266
+//   Timer bar:    y=H*0.41=287
+//   Question box: y=H*0.44=308, h=50
+//   Answer btns:  y=H*0.52=364  (ห่างจาก heroes ชัดเจน)
+//   Heroes:       cy=H*0.79=553
+//   Hero HP:      y=H-38=662
 function getAnswerRegions() {
-  const W = canvas.width, H = canvas.height;
-  const btnW = W * 0.85, btnH = 54;
-  const startX = (W - btnW) / 2;
-  const startY = H * 0.72;
-  return [0, 1, 2].map(i => ({
-    x: startX, y: startY + i * (btnH + 10), w: btnW, h: btnH
-  }));
+  var W = canvas.width, H = canvas.height;
+  var btnW = W * 0.78, btnH = 44;
+  var startX = (W - btnW) / 2;
+  var startY = H * 0.50;
+  return [0, 1, 2].map(function(i) {
+    return { x: startX, y: startY + i * (btnH + 8), w: btnW, h: btnH };
+  });
 }
 
 // ── Render ───────────────────────────────────────────────────────
@@ -400,86 +415,81 @@ function render() {
     ctx.fillText(`🔥 Combo ×${state.combo}`, W - 14, 38);
   }
 
-  // Boss HP bar
-  drawHPBar(W * 0.08, 35, W * 0.84, 16, state.bossHP, state.bossMaxHP, CONFIG.COLORS.HP_BOSS, 'บอส');
+  // Boss HP bar (top)
+  drawHPBar(W * 0.08, 35, W * 0.84, 14, state.bossHP, state.bossMaxHP, CONFIG.COLORS.HP_BOSS, 'บอส');
 
-  // Boss
-  state.boss.draw(ctx, W * 0.5, H * 0.26, 85, state.frame);
-
-  // Hero HP bar
-  drawHPBar(W * 0.08, H - 62, W * 0.84, 16, state.heroHP, state.heroMaxHP, CONFIG.COLORS.HP_HERO, 'ฮีโร่');
-
-  // Hero
-  // วาด party (3 heroes) ที่ล่าง
-  var partySize = state.party.length;
-  state.party.forEach(function(h, i) {
-    var hx = W * (0.5 + (i - (partySize-1)/2) * 0.32);
-    var hy = H * 0.72;
-    var isActive = (h === state.hero);
-    var heroSize = isActive ? 62 : 44;
-    if (isActive) {
-      // glow รอบ active hero
-      ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 12;
-    }
-    h.draw(ctx, hx, hy, heroSize, state.frame);
-    ctx.shadowBlur = 0;
-    // ชื่อ hero
-    ctx.fillStyle = isActive ? '#FFD700' : 'rgba(255,255,255,0.4)';
-    ctx.font = (isActive ? 'bold ' : '') + '9px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText(h.name, hx, hy + heroSize + 10);
-  });
-  ctx.textAlign = 'left';
+  // Boss sprite — ย้ายขึ้นมา H*0.20
+  state.boss.draw(ctx, W * 0.5, H * 0.20, 80, state.frame);
 
   // Element indicator (op ปัจจุบัน)
   if (state.currentOp) {
     var curElem = Object.values(CONFIG.ELEMENTS).find(function(e) { return e.op === state.currentOp; });
     if (curElem) {
-      ctx.fillStyle = curElem.color + 'EE';
-      ctx.font = 'bold 12px sans-serif';
+      ctx.fillStyle = curElem.color + 'CC';
+      ctx.font = 'bold 11px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(curElem.label + ' operation', W / 2, H * 0.49);
+      ctx.fillText(curElem.label + ' operation', W / 2, H * 0.38);
     }
   }
 
-  // Timer bar
+  // Timer bar — y=H*0.41
   if (state.phase === 'question') {
-    const elapsed = performance.now() - state.questionStart;
-    const pct = Math.max(0, 1 - elapsed / CONFIG.SPEED.TIMEOUT_MS);
-    const barW = W * 0.84;
-    const barX = W * 0.08;
-    const barY = H * 0.52;
+    var elapsed = performance.now() - state.questionStart;
+    var pct = Math.max(0, 1 - elapsed / CONFIG.SPEED.TIMEOUT_MS);
+    var barW = W * 0.84;
+    var barX = W * 0.08;
+    var barY = H * 0.41;
 
     ctx.fillStyle = '#1a1a3a';
-    roundRect(ctx, barX, barY, barW, 10, 5);
+    roundRect(ctx, barX, barY, barW, 8, 4);
     ctx.fill();
 
-    const barColor = pct > 0.5 ? CONFIG.COLORS.TIMER_BAR
-                  : pct > 0.25 ? '#FF9900' : '#FF4444';
+    var barColor = pct > 0.5 ? CONFIG.COLORS.TIMER_BAR
+                 : pct > 0.25 ? '#FF9900' : '#FF4444';
     ctx.fillStyle = barColor;
-    roundRect(ctx, barX, barY, barW * pct, 10, 5);
+    roundRect(ctx, barX, barY, barW * pct, 8, 4);
     ctx.fill();
 
     // Speed hint
-    ctx.fillStyle = 'rgba(255,255,255,0.4)';
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
-    if (elapsed < CONFIG.SPEED.CRITICAL_MS)
-      ctx.fillStyle = '#FFD700';
-    else if (elapsed < CONFIG.SPEED.FAST_MS)
-      ctx.fillStyle = '#FF9900';
+    ctx.fillStyle = elapsed < CONFIG.SPEED.CRITICAL_MS ? '#FFD700'
+                  : elapsed < CONFIG.SPEED.FAST_MS     ? '#FF9900'
+                  : 'rgba(255,255,255,0.4)';
     ctx.fillText(
       elapsed < CONFIG.SPEED.CRITICAL_MS ? '⚡ Critical zone!' :
       elapsed < CONFIG.SPEED.FAST_MS     ? '🔥 Fast zone'      : '💤',
-      W / 2, barY - 4
+      W / 2, barY - 5
     );
   }
 
-  // Question box
+  // Question box — y=H*0.44
   if (state.phase === 'question' || state.phase === 'feedback' || state.phase === 'boss_attack') {
     drawQuestionBox(W, H);
     drawAnswerButtons(W, H);
   }
+
+  // Heroes — ย้ายลงมา H*0.79 (ใต้ answer buttons ชัดเจน)
+  var partySize = state.party.length;
+  state.party.forEach(function(h, i) {
+    var hx = W * (0.5 + (i - (partySize-1)/2) * 0.30);
+    var hy = H * 0.81;
+    var isActive = (h === state.hero);
+    var heroSize = isActive ? 52 : 38;
+    if (isActive) {
+      ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 10;
+    }
+    h.draw(ctx, hx, hy, heroSize, state.frame);
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = isActive ? '#FFD700' : 'rgba(255,255,255,0.4)';
+    ctx.font = (isActive ? 'bold ' : '') + '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(h.name, hx, hy + heroSize + 8);
+  });
+  ctx.textAlign = 'left';
+
+  // Hero HP bar — y=H-38
+  drawHPBar(W * 0.08, H - 38, W * 0.84, 14, state.heroHP, state.heroMaxHP, CONFIG.COLORS.HP_HERO, 'ฮีโร่');
 
   // Feedback overlay
   if (state.phase === 'feedback') {
@@ -551,24 +561,25 @@ function drawHPBar(x, y, w, h, hp, maxHp, color, label) {
 }
 
 function drawQuestionBox(W, H) {
-  const q = state.question;
+  var q = state.question;
   if (!q) return;
 
-  // box
-  ctx.fillStyle = 'rgba(20, 10, 50, 0.85)';
-  roundRect(ctx, W * 0.08, H * 0.54, W * 0.84, 70, 12);
+  // box — y=H*0.44, h=52
+  var bx = W * 0.08, by = H * 0.44, bw = W * 0.84, bh = 52;
+  ctx.fillStyle = 'rgba(20, 10, 50, 0.88)';
+  roundRect(ctx, bx, by, bw, bh, 12);
   ctx.fill();
 
-  ctx.strokeStyle = 'rgba(100, 80, 200, 0.6)';
+  ctx.strokeStyle = 'rgba(120, 90, 220, 0.7)';
   ctx.lineWidth = 1.5;
-  roundRect(ctx, W * 0.08, H * 0.54, W * 0.84, 70, 12);
+  roundRect(ctx, bx, by, bw, bh, 12);
   ctx.stroke();
   ctx.lineWidth = 1;
 
   ctx.fillStyle = CONFIG.COLORS.TEXT_MAIN;
-  ctx.font = 'bold 32px sans-serif';
+  ctx.font = 'bold 30px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(q.question, W / 2, H * 0.54 + 46);
+  ctx.fillText(q.question, W / 2, by + 36);
 }
 
 function drawAnswerButtons(W, H) {
@@ -596,9 +607,9 @@ function drawAnswerButtons(W, H) {
     ctx.stroke();
 
     ctx.fillStyle = CONFIG.COLORS.TEXT_MAIN;
-    ctx.font = 'bold 24px sans-serif';
+    ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2 + 9);
+    ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2 + 8);
   });
 }
 
@@ -663,6 +674,12 @@ function drawEndScreen(W, H, victory) {
           // Crystal reward
           var crystalGain = calcCrystalReward(state.floor, state.critCount || 0);
           state.saveData.crystals = (state.saveData.crystals || 0) + crystalGain;
+          // Daily quest: floor cleared
+          state.saveData = onFloorCleared(state.saveData);
+          // Daily quest: boss defeated (every 10th floor)
+          if (state.floor % 10 === 0) {
+            state.saveData = onBossDefeated(state.saveData, state.score);
+          }
           var updated = updateAfterVictory(state.saveData, state.floor, state.score);
           SCENE.switch('tower', canvas);
         } else {

@@ -78,28 +78,33 @@ function loadAllAssets(onComplete, onProgress) {
 
   entries.forEach(function(entry) {
     var img = new Image();
-    img.onload  = function() {
-      // ลบ white background อัตโนมัติหลัง load
-      try {
-        var cleaned = removeWhiteBg(img, 230);
-        if (entry.type === 'hero')  ASSETS.heroes[entry.id] = cleaned;
-        if (entry.type === 'boss')  ASSETS.bosses[entry.id] = cleaned;
-        if (entry.type === 'bg')    ASSETS.bg[entry.id]     = cleaned;
-      } catch(e) {
-        // cross-origin หรือ error → ใช้รูปเดิม (fallback)
+    // crossOrigin ต้องตั้งก่อน src เสมอ — ป้องกัน CORS block getImageData
+    img.crossOrigin = 'anonymous';
+    img.onload = function() {
+      var result = img; // default: ใช้รูปเดิมถ้า removeWhiteBg ล้มเหลว
+      if (entry.type !== 'bg') {
+        // hero/boss: ลบ white bg เสมอ
+        try {
+          result = removeWhiteBg(img, 220);
+        } catch(e) {
+          console.warn('removeWhiteBg failed for', entry.path, e);
+        }
       }
+      if (entry.type === 'hero')  ASSETS.heroes[entry.id] = result;
+      if (entry.type === 'boss')  ASSETS.bosses[entry.id] = result;
+      if (entry.type === 'bg')    ASSETS.bg[entry.id]     = result;
       onLoad(entry);
     };
     img.onerror = function() {
-      // ไม่ block เกม ถ้าโหลดไม่ได้ → fallback canvas
+      // ไม่ block เกม ถ้าโหลดไม่ได้ → fallback canvas draw
       console.warn('Asset not loaded:', entry.path);
+      // clear slot ออก เพื่อให้ imgReady คืน false → ใช้ canvas draw แทน
+      if (entry.type === 'hero')  ASSETS.heroes[entry.id] = null;
+      if (entry.type === 'boss')  ASSETS.bosses[entry.id] = null;
+      if (entry.type === 'bg')    ASSETS.bg[entry.id]     = null;
       onLoad(entry);
     };
     img.src = entry.path;
-
-    if (entry.type === 'hero')  ASSETS.heroes[entry.id] = img;
-    if (entry.type === 'boss')  ASSETS.bosses[entry.id] = img;
-    if (entry.type === 'bg')    ASSETS.bg[entry.id]     = img;
   });
 }
 

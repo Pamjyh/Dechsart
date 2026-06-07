@@ -20,12 +20,14 @@
   <script src="js/systems/audio.js"></script>
   <script src="js/systems/progress.js"></script>
   <script src="js/systems/gacha.js"></script>
+  <script src="js/systems/daily.js"></script>
   <script src="js/systems/assets.js"></script>
   <script src="js/scenes/battle.js"></script>
   <script src="js/scenes/party-select.js"></script>
   <script src="js/scenes/gacha-scene.js"></script>
   <script src="js/scenes/menu.js"></script>
   <script src="js/scenes/tower.js"></script>
+  <script src="js/scenes/daily-scene.js"></script>
   <script src="js/systems/scene-manager.js"></script>
 
   <script>
@@ -99,7 +101,10 @@
     // โหลดรูปทั้งหมด แล้วเริ่มเกม
     loadAllAssets(
       function() {
-        // โหลดครบ → เริ่มเกม
+        // โหลดครบ → เช็ค login streak แล้วเริ่มเกม
+        var _bootSave = loadProgress();
+        _bootSave = checkLoginStreak(_bootSave);
+        saveProgress(_bootSave);
         SCENE.switch('menu', _gameCanvas);
       },
       function(loaded, total) {
