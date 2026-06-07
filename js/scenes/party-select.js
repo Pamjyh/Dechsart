@@ -103,9 +103,9 @@ function handlePartyTap(cx, cy, canvas) {
     return;
   }
 
-  // ── ปุ่ม เริ่มสู้! — ตรงกับ render: by=H-10, btnH=40 ──────
-  var btnW = 200, btnH = 40;
-  var bx = (W - btnW) / 2, by = H - 10 - btnH;
+  // ── ปุ่ม เริ่มสู้! — ตรงกับ render: by=H-8, btnH=42 ──────────
+  var btnW = 210, btnH = 42;
+  var bx = (W - btnW) / 2, by = H - 8 - btnH;
   if (partyState.selected.length > 0 &&
       cx >= bx && cx <= bx + btnW && cy >= by && cy <= by + btnH) {
     var save = partyState.save;
@@ -177,7 +177,7 @@ function renderPartySelect(canvas, ctx) {
   ctx.fillText('⬅ กลับ', 42, 31);
 
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 17px sans-serif';
-  ctx.fillText('⚔️ เลือกทีม', W / 2, 24);
+  drawIconLabel(ctx, '⚔️', 'เลือกทีม', W / 2, 24, 20);
   ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = '11px sans-serif';
   ctx.fillText('เลือก 1-3 คน  |  เลือกแล้ว ' + partyState.selected.length + '/3', W / 2, 42);
   ctx.textAlign = 'left';
@@ -196,7 +196,7 @@ function renderPartySelect(canvas, ctx) {
     var fx = startX + col * cW, fy = startY + row * (cH + 8);
     var fw = cW - 4;
 
-    if (fy + cH < 52 || fy > H - 102) return; // clip (footer=100px)
+    if (fy + cH < 52 || fy > H - 112) return; // clip (footer=110px)
 
     var isSelected = partyState.selected.includes(hid);
     var selIdx     = partyState.selected.indexOf(hid);
@@ -251,14 +251,14 @@ function renderPartySelect(canvas, ctx) {
 
   ctx.textAlign = 'left';
 
-  // ── Footer 100px — แยก preview กับ button ไม่ทับกัน ──────────
-  var FOOTER_H = 100;
+  // ── Footer 110px — slot แถวบน, button แถวล่าง ไม่ทับกัน ──────
+  var FOOTER_H = 110;
   ctx.fillStyle = '#0d0620'; ctx.fillRect(0, H - FOOTER_H, W, FOOTER_H);
   ctx.fillStyle = '#1a0a3e'; ctx.fillRect(0, H - FOOTER_H, W, 2);
 
-  // ── Selected party preview (3 slots) — แถวบนของ footer ──────
+  // ── Selected party preview (3 slots) — y ห่างจาก button ──────
   var slotSize = 36, slotGap = 14;
-  var slotY = H - FOOTER_H + 18;           // top of slot box
+  var slotY = H - FOOTER_H + 10;           // top of slot box
   var slotCY = slotY + slotSize / 2;       // center Y of slot
   var slotStartX = W / 2 - (slotSize + slotGap) - slotSize / 2;
 
@@ -289,14 +289,9 @@ function renderPartySelect(canvas, ctx) {
     }
   });
 
-  // slot label
-  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('ทีมที่เลือก (' + partyState.selected.length + '/3)', W / 2, slotY + slotSize + 12);
-
-  // ── Start button — แถวล่างของ footer ────────────────────────
-  var btnW = 200, btnH = 40;
-  var bx = (W - btnW) / 2, by = H - 10;
+  // ── Start button — ล่าง footer ชัดเจน ────────────────────────
+  var btnW = 210, btnH = 42;
+  var bx = (W - btnW) / 2, by = H - 8;
   var canStart = partyState.selected.length > 0;
   var pulse = Math.sin(f * 0.1) * 5;
 

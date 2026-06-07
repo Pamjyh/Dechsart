@@ -172,11 +172,11 @@ function renderGacha(canvas, ctx) {
   ctx.fillStyle = '#DDD'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
   ctx.fillText('⬅ กลับ', 42, 31);
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
-  ctx.fillText('✨ พิธีปลุกเสก', W / 2, 24);
+  drawIconLabel(ctx, '✨', 'พิธีปลุกเสก', W / 2, 24, 22);
 
   // crystal display
   ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('💎 ' + save.crystals, W / 2, 46);
+  drawIconLabel(ctx, '💎', String(save.crystals), W / 2, 46, 24);
 
   // Pity info
   ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = '10px sans-serif';

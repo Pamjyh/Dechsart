@@ -263,7 +263,7 @@ function renderTower(canvas, ctx) {
 
   // title
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
-  ctx.fillText('⛰ เขาจักรวาล', W / 2, 26);
+  drawIconLabel(ctx, '⛰', 'เขาจักรวาล', W / 2, 26, 22);
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
   ctx.fillText('ถึงชั้น ' + save.maxFloor + ' / 60', W / 2, 44);
   ctx.textAlign = 'left';
@@ -276,20 +276,20 @@ function renderTower(canvas, ctx) {
   towerRR(ctx, 8, H-38, 90, 32, 8); ctx.fill();
   ctx.strokeStyle = '#9933FF'; ctx.lineWidth = 1;
   towerRR(ctx, 8, H-38, 90, 32, 8); ctx.stroke(); ctx.lineWidth = 1;
-  ctx.fillStyle = '#FFD700'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('✨ ปลุกเสก', 53, H - 16);
+  ctx.fillStyle = '#FFD700'; ctx.font = 'bold 11px sans-serif';
+  drawIconLabel(ctx, '✨', 'ปลุกเสก', 53, H - 16, 16);
 
   // ปุ่ม Daily Quest (กลาง footer)
   ctx.fillStyle = '#0a3e1a';
   towerRR(ctx, W/2 - 55, H-38, 110, 32, 8); ctx.fill();
   ctx.strokeStyle = '#33cc66'; ctx.lineWidth = 1;
   towerRR(ctx, W/2 - 55, H-38, 110, 32, 8); ctx.stroke();
-  ctx.fillStyle = '#7fff7f'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('📋 ภารกิจ', W/2, H - 16);
+  ctx.fillStyle = '#7fff7f'; ctx.font = 'bold 11px sans-serif';
+  drawIconLabel(ctx, '📋', 'ภารกิจ', W/2, H - 16, 16);
 
   // Crystal count
   ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 12px sans-serif';
-  ctx.fillText('💎 ' + save.crystals, W - 50, H - 16);
+  drawIconLabel(ctx, '💎', String(save.crystals), W - 34, H - 16, 18);
   ctx.textAlign = 'left';
 
   // ── scroll hint (ครั้งแรก) ──────────────────────

@@ -793,8 +793,7 @@ function drawEndScreen(W, H, victory) {
 
   ctx.fillStyle = victory ? '#FFD700' : '#FF4444';
   ctx.font = 'bold 48px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(victory ? '🎉 ชนะ!' : '💀 แพ้', W / 2, H * 0.35);
+  drawIconLabel(ctx, victory ? '🎉' : '💀', victory ? 'ชนะ!' : 'แพ้', W / 2, H * 0.35, 52);
 
   ctx.fillStyle = '#fff';
   ctx.font = '20px sans-serif';

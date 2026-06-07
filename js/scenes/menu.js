@@ -412,6 +412,7 @@ function renderMenu(canvas, ctx) {
   // ── version ────────────────────────────────────────────────
   ctx.fillStyle = 'rgba(255,255,255,0.28)';
   ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center'; // reset หลัง manual centering ด้านบน
   ctx.fillText('Phase 4 · pamjyh.github.io', W/2, H * 0.975);
   ctx.textAlign = 'left';
 }
