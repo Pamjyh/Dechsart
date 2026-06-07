@@ -195,7 +195,7 @@ function renderPartySelect(canvas, ctx) {
     ctx.lineWidth = 1;
 
     // Draw hero (mini)
-    hero.draw(ctx, fx + fw / 2, fy + 42, 28, f + i * 17);
+    hero.draw(ctx, fx + fw / 2, fy + 44, 36, f + i * 17);
 
     // element badge
     ctx.fillStyle = ELEM_COLORS[hero.element] || '#888';

@@ -127,7 +127,7 @@ var BOSSES = {
   // Floors 51-60: เงา (Final Boss)
   final_boss: {
     id: 'final_boss', name: 'ท้าวอนันตาสูร', element: 'shadow',
-    hpMultiplier: 2.5, weak: 'mixed', resist: 'shadow',
+    hpMultiplier: 1.8, weak: 'mixed', resist: 'shadow',
     floorRange: [51, 60],
     draw: function(ctx, x, y, size, frame) {
       var b = Math.sin(frame * 0.04) * 5;
@@ -183,7 +183,7 @@ function getBossForFloor(floor) {
 
 function getBossHP(floor) {
   var boss = getBossForFloor(floor);
-  return Math.floor(CONFIG.HP.BOSS_BASE * boss.hpMultiplier * (1 + Math.floor(floor/10)*0.1));
+  return Math.floor(CONFIG.HP.BOSS_BASE * boss.hpMultiplier * (1 + Math.floor(floor/10)*0.05));
 }
 
 // ── Sprite wrapper — boss sprites ───────────────────────────────

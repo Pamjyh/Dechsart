@@ -79,9 +79,9 @@ function renderMenu(canvas, ctx) {
   // hero preview (วาด 3 ตัว)
   var heroList = [HEROES.devasri, HEROES.garuda, HEROES.narai];
   heroList.forEach(function(h, i) {
-    var hx = W/2 + (i-1)*95;
-    var hy = H*0.52;
-    h.draw(ctx, hx, hy, 38, f);
+    var hx = W/2 + (i-1)*105;
+    var hy = H*0.50;
+    h.draw(ctx, hx, hy, 60, f);
   });
 
   // start button

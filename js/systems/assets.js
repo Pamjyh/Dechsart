@@ -78,7 +78,18 @@ function loadAllAssets(onComplete, onProgress) {
 
   entries.forEach(function(entry) {
     var img = new Image();
-    img.onload  = function() { onLoad(entry); };
+    img.onload  = function() {
+      // ลบ white background อัตโนมัติหลัง load
+      try {
+        var cleaned = removeWhiteBg(img, 230);
+        if (entry.type === 'hero')  ASSETS.heroes[entry.id] = cleaned;
+        if (entry.type === 'boss')  ASSETS.bosses[entry.id] = cleaned;
+        if (entry.type === 'bg')    ASSETS.bg[entry.id]     = cleaned;
+      } catch(e) {
+        // cross-origin หรือ error → ใช้รูปเดิม (fallback)
+      }
+      onLoad(entry);
+    };
     img.onerror = function() {
       // ไม่ block เกม ถ้าโหลดไม่ได้ → fallback canvas
       console.warn('Asset not loaded:', entry.path);
@@ -92,15 +103,18 @@ function loadAllAssets(onComplete, onProgress) {
   });
 }
 
-/** ตรวจว่า image โหลดสำเร็จและใช้ได้ */
+/** ตรวจว่า image/canvas โหลดสำเร็จและใช้ได้ */
 function imgReady(img) {
-  return img && img.complete && img.naturalWidth > 0;
+  if (!img) return false;
+  if (img.tagName === 'CANVAS') return img.width > 0; // offscreen canvas
+  return img.complete && img.naturalWidth > 0;
 }
 
 /** วาด sprite กลาง (x,y) ด้วย size เป็น half-height */
 function drawSprite(ctx, img, x, y, halfH, frame) {
   if (!imgReady(img)) return false;
-  var ratio  = img.naturalWidth / img.naturalHeight;
+  var ratio  = img.naturalWidth ? img.naturalWidth / img.naturalHeight
+               : img.width / img.height;
   var h = halfH * 2;
   var w = h * ratio;
   // pulse เล็กน้อยให้มีชีวิต
@@ -108,4 +122,42 @@ function drawSprite(ctx, img, x, y, halfH, frame) {
   var sw = w * (1 + pulse), sh = h * (1 + pulse);
   ctx.drawImage(img, x - sw / 2, y - sh / 2, sw, sh);
   return true;
+}
+
+/**
+ * ลบ white/near-white background ออกจากรูป
+ * คืน OffscreenCanvas หรือ canvas element ที่ draw ได้
+ * @param {HTMLImageElement} img
+ * @param {number} threshold — 0-255 (230 = ลบสีขาวและเทาอ่อน)
+ */
+function removeWhiteBg(img, threshold) {
+  threshold = threshold || 215;  // pixels สว่างกว่านี้ → ถูกลบ
+  var hardCut = 240;             // สว่างกว่านี้ → ลบทันที (no fade)
+  var c = document.createElement('canvas');
+  c.width  = img.naturalWidth;
+  c.height = img.naturalHeight;
+  var cx = c.getContext('2d');
+  cx.drawImage(img, 0, 0);
+
+  var data = cx.getImageData(0, 0, c.width, c.height);
+  var px   = data.data;
+
+  for (var i = 0; i < px.length; i += 4) {
+    var r = px[i], g = px[i+1], b = px[i+2];
+    if (r > threshold && g > threshold && b > threshold) {
+      var brightness = (r + g + b) / 3;
+      var alpha;
+      if (brightness >= hardCut) {
+        alpha = 0; // สว่างมาก → ลบทันที
+      } else {
+        // fade zone: threshold~hardCut → alpha 255~0 (aggressive curve)
+        var t = (brightness - threshold) / (hardCut - threshold);
+        alpha = Math.round(255 * Math.pow(1 - t, 2)); // quadratic fade
+      }
+      px[i+3] = Math.min(px[i+3], alpha);
+    }
+  }
+
+  cx.putImageData(data, 0, 0);
+  return c;
 }

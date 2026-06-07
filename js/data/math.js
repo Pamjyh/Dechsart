@@ -1,64 +1,100 @@
-// math.js — question generator
-// ผลิตโจทย์ + ตัวเลือก 3 ข้อตาม operation และระดับความยาก
+// math.js — question generator พร้อม progressive difficulty
 
 /**
- * @param {string} op  '+' | '-' | '*' | '/'
- * @param {number} floor  ชั้นปัจจุบัน (กำหนด difficulty)
- * @returns {{ question: string, answer: number, choices: number[], op: string }}
+ * @param {string} op     '+' | '-' | '*' | '/'
+ * @param {number} floor  ชั้นปัจจุบัน (กำหนด range หลัก)
+ * @param {number} round  จำนวนข้อที่ตอบไปแล้วในรอบนี้ (0 = ข้อแรก)
+ * @returns {{ question, answer, choices, op, difficulty }}
  */
-function generateQuestion(op, floor) {
-  let a, b, answer;
+function generateQuestion(op, floor, round) {
+  round = round || 0;
+
+  // difficulty tier ตาม round (ยากขึ้นเรื่อยๆ ใน battle เดียวกัน)
+  // round 0-3 = easy, 4-6 = medium, 7+ = hard
+  var tier = round <= 3 ? 0 : round <= 6 ? 1 : 2;
+
+  var a, b, answer;
 
   if (op === '+') {
-    const max = floor <= 10 ? 20 : 99;
-    a = randInt(1, max);
-    b = randInt(1, max);
+    var maxVal = getRange(floor, tier, [20, 50, 99], [30, 70, 200]);
+    a = randInt(1, maxVal);
+    b = randInt(1, maxVal);
     answer = a + b;
+
   } else if (op === '-') {
-    const max = floor <= 10 ? 20 : 99;
-    a = randInt(1, max);
-    b = randInt(1, a);       // b <= a → ผลไม่ติดลบ
+    var maxVal = getRange(floor, tier, [20, 50, 99], [30, 70, 200]);
+    a = randInt(1, maxVal);
+    b = randInt(0, a);
     answer = a - b;
+
   } else if (op === '*') {
-    const maxB = floor <= 35 ? 6 : 12;
-    a = randInt(2, 12);
-    b = randInt(2, maxB);
+    // tier 0: ×1-6, tier 1: ×7-9, tier 2: ×10-12 + 2หลัก
+    if (tier === 0) {
+      a = randInt(2, 9); b = randInt(2, 6);
+    } else if (tier === 1) {
+      a = randInt(2, 12); b = randInt(2, 9);
+    } else {
+      a = randInt(3, 15); b = randInt(3, 12);
+    }
     answer = a * b;
-  } else if (op === '/') {
-    b = randInt(2, 12);
-    answer = randInt(2, 12);
-    a = b * answer;           // หารลงตัวเสมอ
+
+  } else { // '/'
+    if (tier === 0) {
+      b = randInt(2, 6); answer = randInt(2, 9);
+    } else if (tier === 1) {
+      b = randInt(2, 9); answer = randInt(2, 12);
+    } else {
+      b = randInt(2, 12); answer = randInt(2, 15);
+    }
+    a = b * answer;
   }
 
-  const question = buildQuestion(a, b, op);
-  const choices  = buildChoices(answer, op);
+  var question = buildQuestion(a, b, op);
+  var choices  = buildChoices(answer, op, tier);
 
-  return { question, answer, choices, op };
+  return { question: question, answer: answer, choices: choices, op: op, difficulty: tier };
+}
+
+// ── Helpers ──────────────────────────────────────────────────────
+
+function getRange(floor, tier, lowFloorRanges, highFloorRanges) {
+  var isHighFloor = floor > 20;
+  var ranges = isHighFloor ? highFloorRanges : lowFloorRanges;
+  return ranges[tier] || ranges[ranges.length - 1];
 }
 
 function buildQuestion(a, b, op) {
-  const symbols = { '+': '+', '-': '−', '*': '×', '/': '÷' };
-  return `${a} ${symbols[op]} ${b} = ?`;
+  var symbols = { '+': '+', '-': '−', '*': '×', '/': '÷' };
+  return a + ' ' + symbols[op] + ' ' + b + ' = ?';
 }
 
-function buildChoices(answer, op) {
-  const wrongs = new Set();
+function buildChoices(answer, op, tier) {
+  var wrongs = new Set();
+  var attempts = 0;
 
-  while (wrongs.size < 2) {
-    let wrong;
-    const delta = randInt(1, Math.max(3, Math.floor(answer * 0.3)));
-    wrong = Math.random() < 0.5 ? answer + delta : Math.max(0, answer - delta);
+  while (wrongs.size < 2 && attempts < 50) {
+    attempts++;
+    var spread = Math.max(2, Math.floor(answer * (tier === 2 ? 0.15 : 0.3)));
+    var delta = randInt(1, spread);
+    var wrong = Math.random() < 0.5 ? answer + delta : Math.max(0, answer - delta);
 
-    // หาร: ตัวเลือกต้องเป็น integer >=1
     if (op === '/') wrong = Math.max(1, Math.round(wrong));
+    if (op === '-') wrong = Math.max(0, wrong);
     if (wrong !== answer) wrongs.add(wrong);
   }
 
-  const choices = [answer, ...[...wrongs]];
+  // fallback ถ้า choices ยังไม่ครบ
+  if (wrongs.size < 2) {
+    wrongs.add(answer + 1);
+    wrongs.add(answer > 1 ? answer - 1 : answer + 2);
+  }
+
+  var choices = [answer].concat(Array.from(wrongs).slice(0, 2));
+
   // shuffle
-  for (let i = choices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [choices[i], choices[j]] = [choices[j], choices[i]];
+  for (var i = choices.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = choices[i]; choices[i] = choices[j]; choices[j] = tmp;
   }
   return choices;
 }

@@ -26,6 +26,7 @@ const state = {
   flowState: false,  // ตอบถูก 5 ติด = crit ต่อไป 3 ข้อ
   flowCount: 0,      // crit ที่เหลือจาก Flow State
   critCount: 0,      // นับ critical hits ในรอบ (สำหรับ crystal reward)
+  battleRound: 0,    // จำนวนข้อที่ตอบไปแล้วในรอบนี้
   opCounts: { '+': 0, '-': 0, '*': 0, '/': 0 },
   currentOp: '+',
 };
@@ -64,6 +65,7 @@ function initBattle(canvasEl, floor, saveData) {
   state.flowState = false;
   state.flowCount = 0;
   state.critCount = 0;
+  state.battleRound = 0;
 
   if (inputAbort) inputAbort.abort();
   inputAbort = new AbortController();
@@ -134,7 +136,7 @@ function startQuestion() {
   if (state.phase === 'victory' || state.phase === 'defeat') return;
   // สลับ op ตาม boss weak/resist เพื่อบังคับ variety
   state.currentOp = pickOp();
-  state.question  = generateQuestion(state.currentOp, state.floor);
+  state.question  = generateQuestion(state.currentOp, state.floor, state.battleRound);
   state.questionStart = performance.now();
   state.phase = 'question';
 }
@@ -252,6 +254,7 @@ function onAnswerSelected(chosen) {
     state.bossHP  = Math.max(0, state.bossHP - dmg);
     state.score  += dmg;
     state.combo++;
+    state.battleRound++;
 
     // Flow State trigger (5 ติด)
     if (state.combo > 0 && state.combo % 5 === 0 && state.flowCount === 0) {
@@ -385,7 +388,8 @@ function render() {
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '13px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`ชั้น ${state.floor}`, 14, 22);
+  var tierLabel = state.battleRound <= 3 ? '' : state.battleRound <= 6 ? ' 🔥' : ' 💥';
+  ctx.fillText('ชั้น ' + state.floor + '  ข้อที่ ' + (state.battleRound+1) + tierLabel, 14, 22);
 
   // Score + Combo
   ctx.textAlign = 'right';
@@ -400,7 +404,7 @@ function render() {
   drawHPBar(W * 0.08, 35, W * 0.84, 16, state.bossHP, state.bossMaxHP, CONFIG.COLORS.HP_BOSS, 'บอส');
 
   // Boss
-  state.boss.draw(ctx, W * 0.72, H * 0.3, 60, state.frame);
+  state.boss.draw(ctx, W * 0.5, H * 0.26, 85, state.frame);
 
   // Hero HP bar
   drawHPBar(W * 0.08, H - 62, W * 0.84, 16, state.heroHP, state.heroMaxHP, CONFIG.COLORS.HP_HERO, 'ฮีโร่');
@@ -409,10 +413,10 @@ function render() {
   // วาด party (3 heroes) ที่ล่าง
   var partySize = state.party.length;
   state.party.forEach(function(h, i) {
-    var hx = W * (0.5 + (i - (partySize-1)/2) * 0.28);
-    var hy = H * 0.68;
+    var hx = W * (0.5 + (i - (partySize-1)/2) * 0.32);
+    var hy = H * 0.72;
     var isActive = (h === state.hero);
-    var heroSize = isActive ? 50 : 36;
+    var heroSize = isActive ? 62 : 44;
     if (isActive) {
       // glow รอบ active hero
       ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 12;
