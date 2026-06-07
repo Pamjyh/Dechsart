@@ -2,7 +2,7 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
   <meta name="theme-color" content="#0d0620" />
   <title>เดชศาสตร์อนันต์</title>
   <link rel="stylesheet" href="css/main.css" />
@@ -45,6 +45,10 @@
     _gameCanvas.height = H;
     resizeGame();
     window.addEventListener('resize', resizeGame);
+    // iOS Safari: visualViewport resize จับ address bar hide/show ได้แม่นกว่า window.resize
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resizeGame);
+    }
 
     // Loading screen จนกว่ารูปจะพร้อม
     var loadCtx = _gameCanvas.getContext('2d');

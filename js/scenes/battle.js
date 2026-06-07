@@ -69,6 +69,9 @@ function initBattle(canvasEl, floor, saveData) {
   state.flowCount = 0;
   state.critCount = 0;
   state.battleRound = 0;
+  // รีเซ็ต end-screen flag เสมอ เพื่อป้องกัน handler ค้างจาก session ก่อน
+  canvas._endHandled = false;
+  canvas._endTouched = false;
 
   if (inputAbort) inputAbort.abort();
   inputAbort = new AbortController();

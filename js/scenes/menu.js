@@ -370,12 +370,8 @@ function renderMenu(canvas, ctx) {
     drawLotus(ctx, l[0], l[1] + Math.sin(f*0.025)*3, l[2], l[3]);
   });
 
-  // ── subtitle ไทย (DECHSART/INFINITY อยู่ใน bg PNG แล้ว) ────
   ctx.textAlign = 'center';
   ctx.shadowBlur = 0;
-  ctx.font = '14px sans-serif';
-  ctx.fillStyle = 'rgba(255,220,255,0.7)';
-  ctx.fillText('เดชศาสตร์อนันต์ · วีรบุรุษพลิกสูตรจักรวาล', W/2, H*0.215);
 
   // ── ปุ่ม START ───────────────────────────────────────────────
   var btnW = 260, btnH = 60;
