@@ -399,25 +399,6 @@ function renderMenu(canvas, ctx) {
   ctx.fillStyle = 'rgba(255,220,255,0.7)';
   ctx.fillText('เดชศาสตร์อนันต์ · วีรบุรุษพลิกสูตรจักรวาล', W/2, H*0.215);
 
-  // ── Chibi Heroes กระจุกกลาง ──────────────────────────────────
-  // เงาใต้ตัวละคร
-  [W*0.22, W*0.5, W*0.78, W*0.38].forEach(function(hx, i) {
-    ctx.fillStyle = 'rgba(0,0,0,0.18)';
-    ctx.beginPath();
-    ctx.ellipse(hx, H*0.695, 28, 8, 0, 0, Math.PI*2);
-    ctx.fill();
-  });
-
-  // วาดตัวละคร 4 ตัว (หลังก่อน → ซ้อนทับสวย)
-  // ครุฑ — หลังสุด กลาง
-  drawChibiGaruda(ctx, W*0.5, H*0.58, 0.95, f);
-  // หนุมาน — ซ้าย
-  drawChibiHanuman(ctx, W*0.22, H*0.60, 0.85, f);
-  // นาค — ขวา
-  drawChibiNaka(ctx, W*0.78, H*0.60, 0.85, f);
-  // เทวดาศรี — หน้าสุด กลาง (ใหญ่สุด)
-  drawChibiDevasri(ctx, W*0.5, H*0.535, 1.05, f);
-
   // ── ปุ่ม START ───────────────────────────────────────────────
   var btnW = 260, btnH = 60;
   var bx = (W - btnW) / 2, by = H * 0.82;
