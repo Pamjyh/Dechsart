@@ -35,14 +35,22 @@ function initPartySelect(canvas, floor, save) {
     partyState._handlers.push({ type: type, fn: fn });
   }
 
+  // ── Click (desktop fallback) ──────────────────────
   addH('click', function(e) {
+    if (partyState._touchHandled) { partyState._touchHandled = false; return; }
+    if (partyState._dragging) return;
     var pt = getPartyPt(e.clientX, e.clientY, canvas);
     handlePartyTap(pt.x, pt.y, canvas);
   });
 
+  // ── Touch drag + tap ──────────────────────────────
+  partyState._touchX0 = 0;
+  partyState._touchHandled = false;
+
   addH('touchstart', function(e) {
     e.preventDefault();
-    partyState._dragY0 = e.touches[0].clientY;
+    partyState._dragY0  = e.touches[0].clientY;
+    partyState._touchX0 = e.touches[0].clientX;
     partyState._scrollY0 = partyState.scrollY;
     partyState._dragging = false;
   }, { passive: false });
@@ -50,13 +58,22 @@ function initPartySelect(canvas, floor, save) {
   addH('touchmove', function(e) {
     e.preventDefault();
     var dy = partyState._dragY0 - e.touches[0].clientY;
-    if (Math.abs(dy) > 5) partyState._dragging = true;
+    if (Math.abs(dy) > 8) partyState._dragging = true;
     partyState.scrollY = Math.max(0, partyState._scrollY0 + dy);
   }, { passive: false });
 
-  addH('touchend', function() {
-    setTimeout(function() { partyState._dragging = false; }, 50);
-  });
+  addH('touchend', function(e) {
+    e.preventDefault();
+    var t = e.changedTouches[0];
+    var dx = Math.abs(t.clientX - partyState._touchX0);
+    var dy = Math.abs(t.clientY - partyState._dragY0);
+    if (dx < 10 && dy < 10 && !partyState._dragging) {
+      partyState._touchHandled = true;
+      var pt = getPartyPt(t.clientX, t.clientY, canvas);
+      handlePartyTap(pt.x, pt.y, canvas);
+    }
+    partyState._dragging = false;
+  }, { passive: false });
 
   if (partyState.animId) cancelAnimationFrame(partyState.animId);
   function loop() {

@@ -14,24 +14,39 @@ function initMenu(canvas) {
 
   if (menuState.animId) cancelAnimationFrame(menuState.animId);
 
-  if (menuState._handler) canvas.removeEventListener('click', menuState._handler);
-  menuState._handler = function(e) {
+  if (menuState._handler)      canvas.removeEventListener('click',      menuState._handler);
+  if (menuState._touchHandler) canvas.removeEventListener('touchstart', menuState._touchHandler);
+
+  function menuTap(clientX, clientY) {
     resumeAudio();
     var rect = canvas.getBoundingClientRect();
-    var sx = CONFIG.CANVAS.BASE_WIDTH / rect.width;
+    var sx = CONFIG.CANVAS.BASE_WIDTH  / rect.width;
     var sy = CONFIG.CANVAS.BASE_HEIGHT / rect.height;
-    var cx = (e.clientX - rect.left) * sx;
-    var cy = (e.clientY - rect.top) * sy;
+    var cx = (clientX - rect.left) * sx;
+    var cy = (clientY - rect.top)  * sy;
     var W = canvas.width, H = canvas.height;
     var btnW = 240, btnH = 56;
     var bx = (W - btnW) / 2, by = H * 0.62;
     if (cx >= bx && cx <= bx + btnW && cy >= by && cy <= by + btnH) {
       cancelAnimationFrame(menuState.animId);
-      canvas.removeEventListener('click', menuState._handler);
+      canvas.removeEventListener('click',      menuState._handler);
+      canvas.removeEventListener('touchstart', menuState._touchHandler);
       SCENE.switch('tower', canvas);
     }
+  }
+
+  menuState._handler = function(e) {
+    if (menuState._touchHandled) { menuState._touchHandled = false; return; }
+    menuTap(e.clientX, e.clientY);
   };
+  menuState._touchHandler = function(e) {
+    e.preventDefault();
+    menuState._touchHandled = true;
+    menuTap(e.touches[0].clientX, e.touches[0].clientY);
+  };
+
   canvas.addEventListener('click', menuState._handler);
+  canvas.addEventListener('touchstart', menuState._touchHandler, { passive: false });
   loop();
 }
 

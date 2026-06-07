@@ -130,36 +130,53 @@ function drawSprite(ctx, img, x, y, halfH, frame) {
 }
 
 /**
- * ลบ white/near-white background ออกจากรูป
- * คืน OffscreenCanvas หรือ canvas element ที่ draw ได้
+ * ลบ background ออกจากรูปโดย sample สีจาก corners
+ * รองรับทั้ง white, grey, checkerboard backgrounds
  * @param {HTMLImageElement} img
- * @param {number} threshold — 0-255 (230 = ลบสีขาวและเทาอ่อน)
+ * @param {number} tolerance — ระยะห่างสีสูงสุด (0-255 per channel, default 50)
  */
-function removeWhiteBg(img, threshold) {
-  threshold = threshold || 215;  // pixels สว่างกว่านี้ → ถูกลบ
-  var hardCut = 240;             // สว่างกว่านี้ → ลบทันที (no fade)
+function removeWhiteBg(img, tolerance) {
+  tolerance = tolerance || 50;
+
   var c = document.createElement('canvas');
-  c.width  = img.naturalWidth;
-  c.height = img.naturalHeight;
+  c.width  = img.naturalWidth  || img.width;
+  c.height = img.naturalHeight || img.height;
   var cx = c.getContext('2d');
   cx.drawImage(img, 0, 0);
 
   var data = cx.getImageData(0, 0, c.width, c.height);
-  var px   = data.data;
+  var px = data.data;
+  var W = c.width, H = c.height;
 
+  // ── Sample background color จาก corners + mid-edges ──────────
+  function getPx(x, y) {
+    var idx = (y * W + x) * 4;
+    return [px[idx], px[idx+1], px[idx+2], px[idx+3]];
+  }
+
+  var samples = [
+    getPx(0, 0),              getPx(W-1, 0),
+    getPx(0, H-1),            getPx(W-1, H-1),
+    getPx(Math.floor(W/2), 0),getPx(0, Math.floor(H/2)),
+    getPx(W-1, Math.floor(H/2)), getPx(Math.floor(W/2), H-1),
+  ].filter(function(p) { return p[3] > 100; }); // เฉพาะ opaque
+
+  if (samples.length === 0) return c; // ไม่รู้ bg → คืนเดิม
+
+  var bgR = Math.round(samples.reduce(function(s,p){return s+p[0];},0)/samples.length);
+  var bgG = Math.round(samples.reduce(function(s,p){return s+p[1];},0)/samples.length);
+  var bgB = Math.round(samples.reduce(function(s,p){return s+p[2];},0)/samples.length);
+
+  var maxDist = tolerance * 3; // Manhattan distance threshold
+
+  // ── ลบ pixels ที่ใกล้เคียง bg color ─────────────────────────
   for (var i = 0; i < px.length; i += 4) {
-    var r = px[i], g = px[i+1], b = px[i+2];
-    if (r > threshold && g > threshold && b > threshold) {
-      var brightness = (r + g + b) / 3;
-      var alpha;
-      if (brightness >= hardCut) {
-        alpha = 0; // สว่างมาก → ลบทันที
-      } else {
-        // fade zone: threshold~hardCut → alpha 255~0 (aggressive curve)
-        var t = (brightness - threshold) / (hardCut - threshold);
-        alpha = Math.round(255 * Math.pow(1 - t, 2)); // quadratic fade
-      }
-      px[i+3] = Math.min(px[i+3], alpha);
+    if (px[i+3] < 10) continue; // transparent อยู่แล้ว → ข้าม
+    var dist = Math.abs(px[i]-bgR) + Math.abs(px[i+1]-bgG) + Math.abs(px[i+2]-bgB);
+    if (dist < maxDist) {
+      // fade: ยิ่งใกล้ bg → alpha ยิ่งต่ำ
+      var alpha = Math.round((dist / maxDist) * px[i+3]);
+      px[i+3] = alpha;
     }
   }
 

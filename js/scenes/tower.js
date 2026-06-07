@@ -37,18 +37,25 @@ function initTower(canvas) {
     towerState._handlers.push({ type: type, fn: fn });
   }
 
-  // ── Click / Tap ─────────────────────────────────
+  // ── Click (desktop fallback) ─────────────────────
   addHandler('click', function(e) {
+    if (towerState._touchHandled) { towerState._touchHandled = false; return; }
     if (towerState.dragging) return;
     resumeAudio();
     var pt = getCanvasPoint(e.clientX, e.clientY, canvas);
     handleTowerTap(pt.x, pt.y, canvas);
   });
 
-  // ── Touch drag scroll ───────────────────────────
+  // ── Touch drag scroll + tap ─────────────────────
+  towerState._touchStartX = 0;
+  towerState._touchStartY = 0;
+  towerState._touchHandled = false;
+
   addHandler('touchstart', function(e) {
     e.preventDefault();
     towerState.dragging = false;
+    towerState._touchStartX = e.touches[0].clientX;
+    towerState._touchStartY = e.touches[0].clientY;
     towerState.dragStartY = e.touches[0].clientY;
     towerState.dragScrollStart = towerState.scrollY;
   }, { passive: false });
@@ -56,15 +63,25 @@ function initTower(canvas) {
   addHandler('touchmove', function(e) {
     e.preventDefault();
     var dy = towerState.dragStartY - e.touches[0].clientY;
-    if (Math.abs(dy) > 5) towerState.dragging = true;
+    if (Math.abs(dy) > 8) towerState.dragging = true;
     towerState.scrollY = Math.max(0, Math.min(towerState.maxScrollY,
       towerState.dragScrollStart + dy));
   }, { passive: false });
 
   addHandler('touchend', function(e) {
-    // ถ้า drag น้อยมาก = tap
-    setTimeout(function() { towerState.dragging = false; }, 50);
-  });
+    e.preventDefault();
+    var t = e.changedTouches[0];
+    var dx = Math.abs(t.clientX - towerState._touchStartX);
+    var dy = Math.abs(t.clientY - towerState._touchStartY);
+    // tap = เคลื่อนน้อยกว่า 10px
+    if (dx < 10 && dy < 10 && !towerState.dragging) {
+      resumeAudio();
+      towerState._touchHandled = true;
+      var pt = getCanvasPoint(t.clientX, t.clientY, canvas);
+      handleTowerTap(pt.x, pt.y, canvas);
+    }
+    towerState.dragging = false;
+  }, { passive: false });
 
   // ── Mouse wheel scroll ──────────────────────────
   addHandler('wheel', function(e) {
