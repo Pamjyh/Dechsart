@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0d0620" />
+  <title>เดชศาสตร์อนันต์</title>
+  <link rel="stylesheet" href="css/main.css" />
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="battleCanvas"></canvas>
+  </div>
+
+  <!-- โหลดเรียงตาม dependency -->
+  <script src="js/config.js"></script>
+  <script src="js/data/math.js"></script>
+  <script src="js/data/heroes.js"></script>
+  <script src="js/data/bosses.js"></script>
+  <script src="js/systems/audio.js"></script>
+  <script src="js/systems/progress.js"></script>
+  <script src="js/scenes/battle.js"></script>
+  <script src="js/scenes/menu.js"></script>
+  <script src="js/scenes/tower.js"></script>
+  <script src="js/systems/scene-manager.js"></script>
+
+  <script>
+    var canvas = document.getElementById('battleCanvas');
+    // resize canvas
+    var W = CONFIG.CANVAS.BASE_WIDTH, H = CONFIG.CANVAS.BASE_HEIGHT;
+    var scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+    canvas.style.width  = W * scale + 'px';
+    canvas.style.height = H * scale + 'px';
+    canvas.width  = W;
+    canvas.height = H;
+    window.addEventListener('resize', function() {
+      var s = Math.min(window.innerWidth / W, window.innerHeight / H);
+      canvas.style.width  = W * s + 'px';
+      canvas.style.height = H * s + 'px';
+    });
+
+    // เริ่มที่ menu
+    SCENE.switch('menu', canvas);
+  </script>
+</body>
+</html>

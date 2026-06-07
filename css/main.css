@@ -1,0 +1,27 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #0d0620;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  font-family: 'Segoe UI', 'Noto Sans Thai', sans-serif;
+}
+
+#game-wrap {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#battleCanvas {
+  display: block;
+  image-rendering: pixelated;
+  touch-action: none;
+  cursor: pointer;
+  border-radius: 12px;
+  box-shadow: 0 0 40px rgba(100, 60, 200, 0.4);
+}
