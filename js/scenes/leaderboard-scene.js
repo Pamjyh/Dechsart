@@ -127,10 +127,11 @@ var LeaderboardScene = (function () {
       ctx.fillText('กำลังโหลด' + dots, W / 2, listY + listH / 2);
       ctx.textAlign = 'left';
     } else if (_state.loadError || !SUPA.isReady()) {
-      ctx.fillStyle = '#FF9999'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('⚠️ ยังไม่ได้ตั้งค่า Supabase', W / 2, listY + 30);
+      ctx.fillStyle = '#FF9999'; ctx.font = '13px sans-serif';
+      drawIconLabel(ctx, '⚠️', 'ยังไม่ได้ตั้งค่า Firebase', W / 2, listY + 30, 20);
+      ctx.textAlign = 'center';
       ctx.fillStyle = '#888'; ctx.font = '11px sans-serif';
-      ctx.fillText('ใส่ URL + ANON_KEY ใน config.js', W / 2, listY + 50);
+      ctx.fillText('ใส่ firebaseConfig ใน config.js', W / 2, listY + 52);
       ctx.textAlign = 'left';
     } else if (_state.rows.length === 0) {
       ctx.fillStyle = '#888'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';

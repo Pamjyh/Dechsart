@@ -276,6 +276,7 @@ function renderTower(canvas, ctx) {
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
   drawIconLabel(ctx, '⛰', 'เขาจักรวาล', W / 2, 26, 22);
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
+  ctx.textAlign = 'center'; // reset หลัง drawIconLabel — ห้ามลบ
   ctx.fillText('ถึงชั้น ' + save.maxFloor + ' / 60', W / 2, 44);
   ctx.textAlign = 'left';
 
