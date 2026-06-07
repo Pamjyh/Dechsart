@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Teacher Dashboard — เดชศาสตร์อนันต์</title>
+  <!-- Firebase CDN -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0620; color: #fff;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh; padding: 20px;
+    }
+    h1 { color: #FFD700; font-size: 20px; margin-bottom: 4px; }
+    .subtitle { color: #888; font-size: 12px; margin-bottom: 20px; }
+    .toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; align-items: center; }
+    input[type="text"], input[type="email"] {
+      background: #1a0a3e; color: #fff; border: 1px solid #6633CC;
+      border-radius: 8px; padding: 9px 13px; font-size: 14px; outline: none;
+    }
+    input#codeInput { letter-spacing: 3px; width: 130px; }
+    button {
+      background: #4a2a8e; color: #FFD700; border: 1px solid #9933FF;
+      border-radius: 8px; padding: 9px 16px; font-size: 13px;
+      font-weight: bold; cursor: pointer; white-space: nowrap;
+    }
+    button:hover { background: #5a3a9e; }
+    button.green { background: #1a3e1a; color: #7fff7f; border-color: #33cc66; }
+    button.green:hover { background: #2a4e2a; }
+    .summary-cards { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .card {
+      background: #1a0a3e; border: 1px solid #3d1a6e;
+      border-radius: 12px; padding: 14px 18px; min-width: 120px;
+    }
+    .card .lbl { color: #888; font-size: 11px; margin-bottom: 4px; }
+    .card .val { color: #FFD700; font-size: 22px; font-weight: bold; }
+    .card .sub { color: #AAA; font-size: 11px; margin-top: 2px; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+    th {
+      background: #1a0a3e; color: #9933FF; font-size: 11px;
+      text-align: left; padding: 8px 10px;
+      border-bottom: 1px solid #3d1a6e; white-space: nowrap;
+    }
+    td { padding: 8px 10px; border-bottom: 1px solid #1a0a2e; vertical-align: middle; }
+    tr:hover td { background: rgba(153,51,255,0.06); }
+    .weak-badge {
+      background: #3e0a0a; color: #FF9999;
+      border-radius: 4px; padding: 2px 6px; font-size: 11px;
+    }
+    .acc-bar { display: flex; align-items: center; gap: 6px; }
+    .acc-track { flex: 1; height: 6px; background: #1a1a2e; border-radius: 3px; overflow: hidden; min-width: 60px; }
+    .acc-fill  { height: 100%; border-radius: 3px; }
+    .panel {
+      background: #1a0a3e; border: 1px solid #33cc66;
+      border-radius: 12px; padding: 16px; margin-bottom: 16px; max-width: 440px;
+    }
+    .panel h3 { color: #7fff7f; margin-bottom: 12px; font-size: 14px; }
+    .panel input { width: 100%; margin-bottom: 8px; }
+    .panel .row { display: flex; gap: 8px; }
+    .msg { padding: 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+    .msg.err  { background: #3e0a0a; color: #FF9999; border: 1px solid #cc3333; }
+    .msg.ok   { background: #0a3e0a; color: #7fff7f; border: 1px solid #33cc66; }
+    .msg.info { background: #1a0a3e; color: #AAA;    border: 1px solid #443; }
+    footer { color: #444; font-size: 11px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+
+<h1>🏫 Teacher Dashboard — เดชศาสตร์อนันต์</h1>
+<p class="subtitle">ดูสถิติห้องเรียน · ค้นหาจุดอ่อนรายคน · Export CSV</p>
+
+<div class="toolbar">
+  <input type="text" id="codeInput" maxlength="6" placeholder="รหัสห้อง" />
+  <button onclick="loadDashboard()">🔍 โหลด</button>
+  <button class="green" onclick="exportCSV()">📥 Export CSV</button>
+  <button class="green" onclick="toggleCreate()">🆕 สร้างห้องใหม่</button>
+</div>
+
+<div id="createPanel" class="panel" style="display:none;">
+  <h3>สร้างห้องเรียนใหม่</h3>
+  <input type="text"  id="roomName"     placeholder="ชื่อห้อง เช่น ป.5/2" />
+  <input type="email" id="teacherEmail" placeholder="Email ครู (สำหรับ reference)" />
+  <div class="row">
+    <button onclick="submitCreate()" style="flex:1;">✅ สร้าง</button>
+    <button onclick="toggleCreate()" style="flex:1;background:#2a1a3e;color:#aaa;border-color:#443;">ยกเลิก</button>
+  </div>
+</div>
+
+<div id="msg"></div>
+<div id="content"><p class="msg info">กรอกรหัสห้องเรียนแล้วกด "โหลด"</p></div>
+
+<footer>เดชศาสตร์อนันต์ · Teacher Dashboard · ข้อมูล 7 วันล่าสุด</footer>
+
+<script>
+// ── Firebase config (copy ค่าเดียวกับ config.js) ──────────────
+var FIREBASE_CONFIG = {
+  apiKey:            'AIzaSyDBtKwK5Ugwv8nZA1s6PtnrCXIvB2I_qv8',
+  authDomain:        'dechsart-infinity.firebaseapp.com',
+  projectId:         'dechsart-infinity',
+  storageBucket:     'dechsart-infinity.firebasestorage.app',
+  messagingSenderId: '36918913534',
+  appId:             '1:36918913534:web:ec93ff3cb2b0d0d19bb8af',
+};
+
+// ── Init ──────────────────────────────────────────────────────
+var _db = null;
+(function () {
+  if (FIREBASE_CONFIG.apiKey === 'AIzaSyDBtKwK5Ugwv8nZA1s6PtnrCXIvB2I_qv8') {
+    showMsg('⚠️ ยังไม่ได้ใส่ Firebase config — แก้ในไฟล์ teacher.html', 'err');
+    return;
+  }
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.firestore();
+    firebase.auth().signInAnonymously().catch(function (e) {
+      console.warn('anon auth:', e.message);
+    });
+  } catch (e) {
+    showMsg('Firebase init failed: ' + e.message, 'err');
+  }
+})();
+
+var _rawData = [];
+
+// ── Load dashboard ────────────────────────────────────────────
+function loadDashboard() {
+  if (!_db) { showMsg('ยังไม่ได้ตั้งค่า Firebase', 'err'); return; }
+  var code = document.getElementById('codeInput').value.trim().toUpperCase();
+  if (code.length !== 6) { showMsg('กรุณากรอกรหัสห้อง 6 ตัว', 'err'); return; }
+
+  showMsg('กำลังโหลด...', 'info');
+  document.getElementById('content').innerHTML = '';
+
+  var dates = [];
+  for (var i = 0; i < 7; i++) {
+    var d = new Date(); d.setDate(d.getDate() - i);
+    dates.push(d.getFullYear() + '-' + p2(d.getMonth()+1) + '-' + p2(d.getDate()));
+  }
+
+  _db.collection('daily_scores')
+    .where('classroomCode', '==', code)
+    .where('date', 'in', dates)
+    .get()
+    .then(function (snap) {
+      _rawData = [];
+      snap.forEach(function (doc) { _rawData.push(doc.data()); });
+      clearMsg();
+      if (_rawData.length === 0) {
+        showMsg('ยังไม่มีข้อมูลในห้อง "' + code + '" — นักเรียนต้องเล่นเกมและเข้าห้องก่อน', 'info');
+      } else {
+        renderDashboard(code);
+      }
+    }).catch(function (e) {
+      // Firestore มักแจ้ง missing index ที่นี่ — เปิด console ดู link
+      showMsg('❌ ' + e.message + ' (เปิด DevTools Console ดู link สร้าง index)', 'err');
+    });
+}
+
+// ── Render ────────────────────────────────────────────────────
+function renderDashboard(code) {
+  var opLabels = { '+': 'บวก', '-': 'ลบ', '*': 'คูณ', '/': 'หาร' };
+
+  // Aggregate per student (by userId)
+  var byStudent = {};
+  _rawData.forEach(function (r) {
+    var uid = r.userId || 'unknown';
+    if (!byStudent[uid]) {
+      byStudent[uid] = {
+        nickname: r.nickname || uid.slice(0, 8),
+        days: 0, totalCorrect: 0, totalWrong: 0,
+        totalDamage: 0, maxFloor: 0,
+        opErrors: { '+': 0, '-': 0, '*': 0, '/': 0 }
+      };
+    }
+    var s = byStudent[uid];
+    s.days++;
+    s.totalCorrect += r.correctAnswers || 0;
+    s.totalWrong   += r.wrongAnswers   || 0;
+    s.totalDamage  += r.damageDealt    || 0;
+    s.maxFloor      = Math.max(s.maxFloor, r.floorReached || 0);
+    if (r.opErrors) {
+      ['+','-','*','/'].forEach(function(op) {
+        s.opErrors[op] = (s.opErrors[op]||0) + (r.opErrors[op]||0);
+      });
+    }
+  });
+
+  var list = Object.values(byStudent);
+  list.sort(function (a, b) { return b.totalDamage - a.totalDamage; });
+
+  // Summary
+  var avgAcc = list.reduce(function (sum, s) {
+    var t = s.totalCorrect + s.totalWrong;
+    return sum + (t > 0 ? s.totalCorrect / t : 0);
+  }, 0) / (list.length || 1);
+
+  var totErr = { '+': 0, '-': 0, '*': 0, '/': 0 };
+  list.forEach(function (s) {
+    ['+','-','*','/'].forEach(function(op) { totErr[op] += s.opErrors[op]||0; });
+  });
+  var weakOp = Object.keys(totErr).reduce(function (a, b) {
+    return totErr[a] >= totErr[b] ? a : b;
+  });
+
+  var html = '<div class="summary-cards">';
+  html += card('👥 นักเรียน',    list.length + ' คน',                   'ในห้อง ' + code);
+  html += card('🎯 Accuracy',    Math.round(avgAcc * 100) + '%',         'เฉลี่ยทั้งห้อง');
+  html += card('⚠️ จุดอ่อนห้อง', opLabels[weakOp] + ' (' + weakOp + ')', 'ตอบผิดมากสุด');
+  html += '</div>';
+
+  html += '<table><thead><tr>' +
+    '<th>#</th><th>ชื่อ</th><th>Accuracy</th>' +
+    '<th>ดาเมจ ⚔</th><th>ชั้นสูงสุด</th><th>จุดอ่อน</th>' +
+    '</tr></thead><tbody>';
+
+  list.forEach(function (s, i) {
+    var total  = s.totalCorrect + s.totalWrong;
+    var acc    = total > 0 ? s.totalCorrect / total : 0;
+    var accPct = Math.round(acc * 100);
+    var accClr = accPct >= 80 ? '#6BCB77' : accPct >= 60 ? '#FFD93D' : '#FF6B6B';
+    var wk     = Object.keys(s.opErrors).reduce(function (a, b) {
+      return (s.opErrors[a]||0) >= (s.opErrors[b]||0) ? a : b;
+    });
+    var wkHtml = (s.opErrors[wk] > 0)
+      ? '<span class="weak-badge">' + opLabels[wk] + ' ' + s.opErrors[wk] + '×</span>'
+      : '<span style="color:#555">ดีมาก ✨</span>';
+    var medal  = i===0?'🥇 ':i===1?'🥈 ':i===2?'🥉 ':'';
+    html += '<tr>' +
+      '<td style="color:#888">' + (i+1) + '</td>' +
+      '<td style="color:#FFF;font-weight:' + (i<3?'bold':'normal') + '">' + medal + s.nickname + '</td>' +
+      '<td><div class="acc-bar">' +
+        '<div class="acc-track"><div class="acc-fill" style="width:' + accPct + '%;background:' + accClr + '"></div></div>' +
+        '<span style="color:' + accClr + ';min-width:34px;font-size:12px">' + accPct + '%</span>' +
+      '</div></td>' +
+      '<td style="color:#FF9944">' + s.totalDamage + '</td>' +
+      '<td style="color:#9933FF">ชั้น ' + s.maxFloor + '</td>' +
+      '<td>' + wkHtml + '</td>' +
+      '</tr>';
+  });
+  html += '</tbody></table>';
+  document.getElementById('content').innerHTML = html;
+}
+
+// ── Export CSV ────────────────────────────────────────────────
+function exportCSV() {
+  if (!_rawData.length) { showMsg('โหลดข้อมูลก่อน', 'err'); return; }
+  var rows = [['nickname','date','damageDealt','correctAnswers','wrongAnswers',
+               'floorReached','op_+','op_-','op_*','op_/']];
+  _rawData.forEach(function (r) {
+    var e = r.opErrors || {};
+    rows.push([r.nickname||'', r.date||'', r.damageDealt||0,
+      r.correctAnswers||0, r.wrongAnswers||0, r.floorReached||0,
+      e['+']+0, e['-']+0, e['*']+0, e['/']+0]);
+  });
+  var csv = rows.map(function (r) {
+    return r.map(function (v) { return '"' + String(v).replace(/"/g,'""') + '"'; }).join(',');
+  }).join('\n');
+  var code = document.getElementById('codeInput').value.trim().toUpperCase() || 'export';
+  var a    = document.createElement('a');
+  a.href   = 'data:text/csv;charset=utf-8,﻿' + encodeURIComponent(csv); // BOM for Excel Thai
+  a.download = 'dechsart-' + code + '-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+// ── Create classroom ──────────────────────────────────────────
+function toggleCreate() {
+  var p = document.getElementById('createPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+function submitCreate() {
+  if (!_db) { showMsg('ยังไม่ได้ตั้งค่า Firebase', 'err'); return; }
+  var name  = document.getElementById('roomName').value.trim();
+  var email = document.getElementById('teacherEmail').value.trim();
+  if (!name) { showMsg('กรุณาใส่ชื่อห้อง', 'err'); return; }
+
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code  = '';
+  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+
+  _db.collection('classrooms').doc(code).set({
+    name: name, teacherEmail: email || '',
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  }).then(function () {
+    toggleCreate();
+    document.getElementById('codeInput').value = code;
+    showMsg('✅ สร้างห้องสำเร็จ! รหัส: ' + code + ' — ห้อง: ' + name +
+            '\n\nแจกรหัสนี้ให้นักเรียนกรอกในเกม (กด 🏆 → 🏫 เข้าห้องเรียน)', 'ok');
+  }).catch(function (e) { showMsg('❌ ' + e.message, 'err'); });
+}
+
+// ── UI helpers ────────────────────────────────────────────────
+function card(lbl, val, sub) {
+  return '<div class="card"><div class="lbl">' + lbl + '</div>' +
+    '<div class="val">' + val + '</div><div class="sub">' + sub + '</div></div>';
+}
+function showMsg(txt, type) {
+  document.getElementById('msg').innerHTML =
+    '<div class="msg ' + type + '">' + txt.replace(/\n/g,'<br>') + '</div>';
+}
+function clearMsg() { document.getElementById('msg').innerHTML = ''; }
+function p2(n) { return n < 10 ? '0'+n : ''+n; }
+</script>
+</body>
+</html>

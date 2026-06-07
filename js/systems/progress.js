@@ -25,6 +25,7 @@ var DEFAULT_SAVE = {
     floorsCleared: 0,       // quest 2: ไต่หอ
     bossDefeated: 0,        // quest 3: สู้บอส
     claimed: [],            // quest ids ที่รับรางวัลแล้ว ['q1','q2','q3']
+    wrongAnswers: 0,        // Phase 5: ตอบผิดวันนี้ (สำหรับ teacher dashboard)
   },
   weeklyBoss: {
     weekStart: '',          // 'YYYY-MM-DD' ของวันจันทร์ที่เริ่ม week
@@ -32,6 +33,9 @@ var DEFAULT_SAVE = {
     defeated: false,        // boss ตายแล้วหรือยัง (local simulation)
     rewardClaimed: false,
   },
+  // Phase 5 — Cloud / Social
+  nickname: '',             // ชื่อเล่น (สูงสุด 20 ตัว) แสดงใน leaderboard
+  classroomCode: '',        // รหัสห้อง 6 ตัว (ว่าง = ไม่ได้เข้าห้อง)
 };
 
 function loadProgress() {
@@ -50,6 +54,10 @@ function loadProgress() {
 function saveProgress(data) {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    // Phase 5: fire-and-forget sync ไป Supabase (ถ้า ready)
+    if (typeof SUPA !== 'undefined' && SUPA.isReady()) {
+      SUPA.syncDailyScore(data);
+    }
   } catch (e) {
     console.warn('Failed to save:', e);
   }

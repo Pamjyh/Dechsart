@@ -2,6 +2,18 @@
 // เดชศาสตร์อนันต์ v0.1
 
 const CONFIG = {
+  // ── Firebase (Phase 5) ──────────────────────────────────────
+  // ใส่ค่าจาก Firebase Console → Project settings → Your apps → SDK setup
+  FIREBASE: {
+    apiKey:            'AIzaSyDBtKwK5Ugwv8nZA1s6PtnrCXIvB2I_qv8',
+    authDomain:        'dechsart-infinity.firebaseapp.com',
+    projectId:         'dechsart-infinity',
+    storageBucket:     'dechsart-infinity.firebasestorage.app',
+    messagingSenderId: '36918913534',
+    appId:             '1:36918913534:web:ec93ff3cb2b0d0d19bb8af',
+  },
+
+
   // ── Canvas ──────────────────────────────────────────
   CANVAS: {
     BASE_WIDTH: 400,

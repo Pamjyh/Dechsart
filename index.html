@@ -12,8 +12,14 @@
     <canvas id="battleCanvas"></canvas>
   </div>
 
-  <!-- ลำดับสำคัญ: config → data → systems → assets → scenes → entry -->
+  <!-- Firebase CDN (Phase 5) — compat SDK ใช้ได้กับ vanilla JS -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <!-- ลำดับสำคัญ: config → firebase → data → systems → assets → scenes → entry -->
   <script src="js/config.js"></script>
+  <script src="js/systems/firebase.js"></script>
   <script src="js/data/math.js"></script>
   <script src="js/data/heroes.js"></script>
   <script src="js/data/bosses.js"></script>
@@ -28,6 +34,8 @@
   <script src="js/scenes/menu.js"></script>
   <script src="js/scenes/tower.js"></script>
   <script src="js/scenes/daily-scene.js"></script>
+  <script src="js/scenes/leaderboard-scene.js"></script>
+  <script src="js/scenes/classroom-scene.js"></script>
   <script src="js/systems/scene-manager.js"></script>
 
   <script>
@@ -107,10 +115,16 @@
     // โหลดรูปทั้งหมด แล้วเริ่มเกม
     loadAllAssets(
       function() {
-        // โหลดครบ → เช็ค login streak แล้วเริ่มเกม
+        // Phase 5: init Firebase (ถ้า config พร้อม)
+        SUPA.init();
+        // เช็ค login streak แล้วเริ่มเกม
         var _bootSave = loadProgress();
         _bootSave = checkLoginStreak(_bootSave);
         saveProgress(_bootSave);
+        // sync user profile ถ้ามี nickname
+        if (SUPA.isReady() && _bootSave.nickname) {
+          SUPA.upsertUser(_bootSave, null);
+        }
         SCENE.switch('menu', _gameCanvas);
       },
       function(loaded, total) {

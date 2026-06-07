@@ -130,14 +130,25 @@ function handleTowerTap(cx, cy, canvas) {
     return;
   }
 
-  // ── ปุ่ม Daily Quest ──
-  if (cx >= W / 2 - 55 && cx <= W / 2 + 55 && cy >= H - 38 && cy <= H - 6) {
+  // ── ปุ่ม Daily Quest ── (render: W/2-94, w=90 → right=W/2-4)
+  if (cx >= W / 2 - 94 && cx <= W / 2 - 4 && cy >= H - 38 && cy <= H - 6) {
     cancelAnimationFrame(towerState.animId);
     towerState._handlers.forEach(function(h) {
       canvas.removeEventListener(h.type, h.fn);
     });
     DailyScene.start(canvas, towerState.save, function() {
-      // กลับมา tower หลังปิด daily panel
+      SCENE.switch('tower', canvas);
+    });
+    return;
+  }
+
+  // ── ปุ่ม Leaderboard ──
+  if (cx >= W / 2 + 2 && cx <= W / 2 + 96 && cy >= H - 38 && cy <= H - 6) {
+    cancelAnimationFrame(towerState.animId);
+    towerState._handlers.forEach(function(h) {
+      canvas.removeEventListener(h.type, h.fn);
+    });
+    LeaderboardScene.start(canvas, towerState.save, function() {
       SCENE.switch('tower', canvas);
     });
     return;
@@ -279,17 +290,25 @@ function renderTower(canvas, ctx) {
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 11px sans-serif';
   drawIconLabel(ctx, '✨', 'ปลุกเสก', 53, H - 16, 16);
 
-  // ปุ่ม Daily Quest (กลาง footer)
+  // ปุ่ม Daily Quest (กลางซ้าย footer)
   ctx.fillStyle = '#0a3e1a';
-  towerRR(ctx, W/2 - 55, H-38, 110, 32, 8); ctx.fill();
+  towerRR(ctx, W/2 - 94, H-38, 90, 32, 8); ctx.fill();
   ctx.strokeStyle = '#33cc66'; ctx.lineWidth = 1;
-  towerRR(ctx, W/2 - 55, H-38, 110, 32, 8); ctx.stroke();
+  towerRR(ctx, W/2 - 94, H-38, 90, 32, 8); ctx.stroke();
   ctx.fillStyle = '#7fff7f'; ctx.font = 'bold 11px sans-serif';
-  drawIconLabel(ctx, '📋', 'ภารกิจ', W/2, H - 16, 16);
+  drawIconLabel(ctx, '📋', 'ภารกิจ', W/2 - 49, H - 16, 16);
 
-  // Crystal count
-  ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 12px sans-serif';
-  drawIconLabel(ctx, '💎', String(save.crystals), W - 34, H - 16, 18);
+  // ปุ่ม Leaderboard (กลางขวา footer)
+  ctx.fillStyle = '#1a0a3e';
+  towerRR(ctx, W/2 + 2, H-38, 90, 32, 8); ctx.fill();
+  ctx.strokeStyle = '#FFD700'; ctx.lineWidth = 1;
+  towerRR(ctx, W/2 + 2, H-38, 90, 32, 8); ctx.stroke();
+  ctx.fillStyle = '#FFD700'; ctx.font = 'bold 11px sans-serif';
+  drawIconLabel(ctx, '🏆', 'อันดับ', W/2 + 47, H - 16, 16);
+
+  // Crystal count (ขวาสุด)
+  ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 11px sans-serif';
+  drawIconLabel(ctx, '💎', String(save.crystals), W - 32, H - 16, 16);
   ctx.textAlign = 'left';
 
   // ── scroll hint (ครั้งแรก) ──────────────────────
