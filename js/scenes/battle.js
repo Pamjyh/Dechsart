@@ -452,8 +452,7 @@ function render() {
     ctx.strokeStyle = 'rgba(150,100,255,0.6)'; ctx.lineWidth = 1;
     roundRect(ctx, 6, 6, 52, 28, 7); ctx.stroke(); ctx.lineWidth = 1;
     ctx.fillStyle = '#DDD'; ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.fillText('⬅ หอ', 32, 24);
+    drawIconLabel(ctx, '⬅', 'หอ', 32, 24, 14);
   }
 
   // Floor label

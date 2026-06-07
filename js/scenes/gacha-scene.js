@@ -169,8 +169,8 @@ function renderGacha(canvas, ctx) {
   ctx.fillStyle = '#1a0a3e'; ctx.fillRect(0, 0, W, 52);
   ctx.fillStyle = '#3d1a6e'; gachaRR(ctx, 8, 8, 68, 36, 8); ctx.fill();
   ctx.strokeStyle = '#6633CC'; ctx.lineWidth = 1; gachaRR(ctx, 8, 8, 68, 36, 8); ctx.stroke(); ctx.lineWidth = 1;
-  ctx.fillStyle = '#DDD'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('⬅ กลับ', 42, 31);
+  ctx.fillStyle = '#DDD'; ctx.font = 'bold 12px sans-serif';
+  drawIconLabel(ctx, '⬅', 'กลับ', 42, 31, 15);
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
   drawIconLabel(ctx, '✨', 'พิธีปลุกเสก', W / 2, 24, 22);
 
@@ -252,11 +252,12 @@ function renderGachaLobby(ctx, W, H, f, save) {
     ctx.lineWidth = btn[3] ? 2 : 1;
     gachaRR(ctx, bx, by, btnW, btnH, 12); ctx.stroke(); ctx.lineWidth = 1;
     ctx.fillStyle = btn[3] ? '#FFF' : '#555';
-    ctx.font = 'bold 14px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(btn[1], bx + btnW/2, by + 22);
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'center'; ctx.fillText(btn[1], bx + btnW/2, by + 22);
     ctx.fillStyle = btn[3] ? '#4ECDC4' : '#444';
     ctx.font = '12px sans-serif';
-    ctx.fillText(btn[2], bx + btnW/2, by + 40);
+    // btn[2] = "50 💎" — ใช้ drawIconLabel ป้องกัน iOS emoji width bug
+    drawIconLabel(ctx, '💎', String(btn[2]).replace(' 💎',''), bx + btnW/2, by + 40, 16);
   });
 
   ctx.textAlign = 'left';
@@ -297,7 +298,7 @@ function renderGachaReveal(ctx, W, H, f) {
   // NEW! badge
   if (result.isNew) {
     ctx.fillStyle = '#FFD700'; ctx.font = 'bold 14px sans-serif';
-    ctx.fillText('✨ NEW!', W/2, H * 0.74);
+    drawIconLabel(ctx, '✨', 'NEW!', W/2, H * 0.74, 18);
   } else {
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '12px sans-serif';
     ctx.fillText('(มีแล้ว)', W/2, H * 0.74);

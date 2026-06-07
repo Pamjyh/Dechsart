@@ -173,8 +173,8 @@ function renderPartySelect(canvas, ctx) {
   ctx.fillStyle = '#3d1a6e';
   psRR(ctx, 8, 8, 68, 36, 8); ctx.fill();
   ctx.strokeStyle = '#6633CC'; ctx.lineWidth = 1; psRR(ctx, 8, 8, 68, 36, 8); ctx.stroke();
-  ctx.fillStyle = '#DDD'; ctx.font = 'bold 12px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('⬅ กลับ', 42, 31);
+  ctx.fillStyle = '#DDD'; ctx.font = 'bold 12px sans-serif';
+  drawIconLabel(ctx, '⬅', 'กลับ', 42, 31, 15);
 
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 17px sans-serif';
   drawIconLabel(ctx, '⚔️', 'เลือกทีม', W / 2, 24, 20);

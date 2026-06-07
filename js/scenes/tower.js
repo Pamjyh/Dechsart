@@ -258,8 +258,8 @@ function renderTower(canvas, ctx) {
   ctx.strokeStyle = '#6633CC'; ctx.lineWidth = 1;
   towerRR(ctx, 8, 8, 68, 36, 8); ctx.stroke();
   ctx.lineWidth = 1;
-  ctx.fillStyle = '#DDD'; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('⬅ เมนู', 42, 31);
+  ctx.fillStyle = '#DDD'; ctx.font = 'bold 13px sans-serif';
+  drawIconLabel(ctx, '⬅', 'เมนู', 42, 31, 16);
 
   // title
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
