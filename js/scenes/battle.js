@@ -89,10 +89,9 @@ function resizeCanvas() {
   var W = CONFIG.CANVAS.BASE_WIDTH;
   var H = CONFIG.CANVAS.BASE_HEIGHT;
   // ใช้ game-wrap แทน window เพื่อแก้ iOS Safari viewport bug (dvh ≠ window.innerHeight)
-  var wrap = document.getElementById('game-wrap');
-  var scale = wrap
-    ? Math.min(wrap.clientWidth / W, wrap.clientHeight / H)
-    : Math.min(window.innerWidth / W, window.innerHeight / H);
+  var vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
+  var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  var scale = Math.min(vw / W, vh / H);
   canvas.style.width  = W * scale + 'px';
   canvas.style.height = H * scale + 'px';
   canvas.width  = W;
@@ -809,7 +808,8 @@ function drawEndScreen(W, H, victory) {
   ctx.fillStyle = victory ? '#2d7a3a' : '#7a2d2d';
   roundRect(ctx, b1x, b1y, btn1W, btn1H, 12); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
-  ctx.fillText(victory ? '⬆️ ชั้นต่อไป' : '🔄 ลองใหม่', W / 2, b1y + btn1H / 2 + 7);
+  ctx.textAlign = 'center';
+  ctx.fillText(victory ? 'ชั้นต่อไป  ▶' : '↺  ลองใหม่', W / 2, b1y + btn1H / 2 + 7);
 
   // ปุ่มรอง: กลับหน้าหอ
   var btn2W = 220, btn2H = 44;
@@ -820,7 +820,8 @@ function drawEndScreen(W, H, victory) {
   roundRect(ctx, b2x, b2y, btn2W, btn2H, 12); ctx.stroke();
   ctx.lineWidth = 1;
   ctx.fillStyle = '#CCC'; ctx.font = '17px sans-serif';
-  ctx.fillText('⬅ กลับหน้าหอ', W / 2, b2y + btn2H / 2 + 6);
+  ctx.textAlign = 'center';
+  ctx.fillText('◄  กลับหน้าหอ', W / 2, b2y + btn2H / 2 + 6);
   ctx.textAlign = 'left';
 
   // ผูก handler ครั้งเดียว รองรับทั้ง click และ touchend (iOS fix)

@@ -400,7 +400,8 @@ function renderMenu(canvas, ctx) {
   // ข้อความปุ่ม
   ctx.font = 'bold 24px sans-serif';
   ctx.fillStyle = '#FFD700';
-  ctx.fillText('⚔️  เริ่มผจญภัย', W/2, by + btnH/2 + 9);
+  ctx.textAlign = 'center';
+  ctx.fillText('เริ่มผจญภัย', W/2, by + btnH/2 + 9);
 
   // ── version ────────────────────────────────────────────────
   ctx.fillStyle = 'rgba(255,255,255,0.28)';

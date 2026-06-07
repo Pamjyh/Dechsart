@@ -288,7 +288,8 @@ function renderPartySelect(canvas, ctx) {
   psRR(ctx, bx, by - btnH, btnW, btnH, 12); ctx.stroke(); ctx.lineWidth = 1;
   ctx.fillStyle = canStart ? '#FFD700' : '#555';
   ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(canStart ? '⚔️ เริ่มสู้!' : 'เลือก hero ก่อน', W / 2, by - btnH / 2 + 7);
+  ctx.textAlign = 'center';
+  ctx.fillText(canStart ? 'เริ่มสู้!' : 'เลือก hero ก่อน', W / 2, by - btnH / 2 + 7);
   ctx.textAlign = 'left';
 }
 

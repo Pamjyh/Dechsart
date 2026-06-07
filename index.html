@@ -34,10 +34,11 @@
     var _gameCanvas = document.getElementById('battleCanvas');
     var W = CONFIG.CANVAS.BASE_WIDTH, H = CONFIG.CANVAS.BASE_HEIGHT;
 
-    // resize — ใช้ game-wrap แทน window เพื่อแก้ iOS Safari viewport bug
+    // resize — ใช้ visualViewport เพื่อแก้ iOS Safari address bar bug
     function resizeGame() {
-      var wrap = document.getElementById('game-wrap');
-      var s = Math.min(wrap.clientWidth / W, wrap.clientHeight / H);
+      var vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
+      var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      var s = Math.min(vw / W, vh / H);
       _gameCanvas.style.width  = W * s + 'px';
       _gameCanvas.style.height = H * s + 'px';
     }
