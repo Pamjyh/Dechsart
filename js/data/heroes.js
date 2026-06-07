@@ -340,3 +340,16 @@ var ALL_HEROES = Object.values(HEROES);
 function getHeroById(id) {
   return HEROES[id] || null;
 }
+
+// ── Sprite wrapper — ใส่ sprite check ให้ทุก hero ──────────────
+(function() {
+  Object.keys(HEROES).forEach(function(id) {
+    var hero = HEROES[id];
+    var origDraw = hero.draw;
+    hero.draw = function(ctx, x, y, size, frame) {
+      var img = ASSETS && ASSETS.heroes && ASSETS.heroes[id];
+      if (drawSprite(ctx, img, x, y, size, frame)) return;
+      origDraw.call(this, ctx, x, y, size, frame);
+    };
+  });
+})();

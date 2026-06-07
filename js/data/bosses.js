@@ -185,3 +185,17 @@ function getBossHP(floor) {
   var boss = getBossForFloor(floor);
   return Math.floor(CONFIG.HP.BOSS_BASE * boss.hpMultiplier * (1 + Math.floor(floor/10)*0.1));
 }
+
+// ── Sprite wrapper — boss sprites ───────────────────────────────
+(function() {
+  Object.keys(BOSSES).forEach(function(id) {
+    var boss = BOSSES[id];
+    var origDraw = boss.draw;
+    boss.draw = function(ctx, x, y, size, frame) {
+      var img = ASSETS && ASSETS.bosses && ASSETS.bosses[id];
+      // boss sprite ใหญ่กว่า hero: size * 1.4
+      if (drawSprite(ctx, img, x, y, size * 1.4, frame)) return;
+      origDraw.call(this, ctx, x, y, size, frame);
+    };
+  });
+})();

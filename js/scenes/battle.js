@@ -363,12 +363,20 @@ function getAnswerRegions() {
 function render() {
   const W = canvas.width, H = canvas.height;
 
-  // Background gradient
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, CONFIG.COLORS.BG_TOP);
-  bg.addColorStop(1, CONFIG.COLORS.BG_BOTTOM);
-  ctx.fillStyle = bg;
-  ctx.fillRect(0, 0, W, H);
+  // Background
+  var battleBg = ASSETS && ASSETS.bg && ASSETS.bg.battle;
+  if (imgReady(battleBg)) {
+    ctx.drawImage(battleBg, 0, 0, W, H);
+    // overlay เพื่อให้ UI อ่านง่าย
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    var bg = ctx.createLinearGradient(0, 0, 0, H);
+    bg.addColorStop(0, CONFIG.COLORS.BG_TOP);
+    bg.addColorStop(1, CONFIG.COLORS.BG_BOTTOM);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, W, H);
+  }
 
   // Stars
   drawStars(W, H);

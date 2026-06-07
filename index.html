@@ -12,16 +12,17 @@
     <canvas id="battleCanvas"></canvas>
   </div>
 
-  <!-- โหลดเรียงตาม dependency -->
+  <!-- ลำดับสำคัญ: config → data → systems → assets → scenes → entry -->
   <script src="js/config.js"></script>
   <script src="js/data/math.js"></script>
   <script src="js/data/heroes.js"></script>
   <script src="js/data/bosses.js"></script>
   <script src="js/systems/audio.js"></script>
   <script src="js/systems/progress.js"></script>
+  <script src="js/systems/gacha.js"></script>
+  <script src="js/systems/assets.js"></script>
   <script src="js/scenes/battle.js"></script>
   <script src="js/scenes/party-select.js"></script>
-  <script src="js/systems/gacha.js"></script>
   <script src="js/scenes/gacha-scene.js"></script>
   <script src="js/scenes/menu.js"></script>
   <script src="js/scenes/tower.js"></script>
@@ -29,21 +30,82 @@
 
   <script>
     var _gameCanvas = document.getElementById('battleCanvas');
-    // resize canvas
     var W = CONFIG.CANVAS.BASE_WIDTH, H = CONFIG.CANVAS.BASE_HEIGHT;
-    var scale = Math.min(window.innerWidth / W, window.innerHeight / H);
-    _gameCanvas.style.width  = W * scale + 'px';
-    _gameCanvas.style.height = H * scale + 'px';
-    _gameCanvas.width  = W;
-    _gameCanvas.height = H;
-    window.addEventListener('resize', function() {
+
+    // resize
+    function resizeGame() {
       var s = Math.min(window.innerWidth / W, window.innerHeight / H);
       _gameCanvas.style.width  = W * s + 'px';
       _gameCanvas.style.height = H * s + 'px';
-    });
+    }
+    _gameCanvas.width  = W;
+    _gameCanvas.height = H;
+    resizeGame();
+    window.addEventListener('resize', resizeGame);
 
-    // เริ่มที่ menu
-    SCENE.switch('menu', _gameCanvas);
+    // Loading screen จนกว่ารูปจะพร้อม
+    var loadCtx = _gameCanvas.getContext('2d');
+
+    function drawLoading(loaded, total) {
+      loadCtx.fillStyle = '#0d0620';
+      loadCtx.fillRect(0, 0, W, H);
+
+      // stars
+      loadCtx.fillStyle = 'rgba(255,255,255,0.3)';
+      for (var i = 0; i < 30; i++) {
+        loadCtx.beginPath();
+        loadCtx.arc((i*137.5)%W, (i*97.3)%H, 1, 0, Math.PI*2);
+        loadCtx.fill();
+      }
+
+      // title
+      loadCtx.fillStyle = '#FFD700';
+      loadCtx.font = 'bold 28px sans-serif';
+      loadCtx.textAlign = 'center';
+      loadCtx.fillText('เดชศาสตร์อนันต์', W/2, H*0.38);
+
+      loadCtx.fillStyle = '#CC99FF';
+      loadCtx.font = '15px sans-serif';
+      loadCtx.fillText('วีรบุรุษพลิกสูตรจักรวาล', W/2, H*0.46);
+
+      // progress bar
+      var pct  = total > 0 ? loaded / total : 0;
+      var bW = W * 0.7, bH = 10;
+      var bX = (W - bW) / 2, bY = H * 0.56;
+
+      loadCtx.fillStyle = '#222';
+      loadCtx.beginPath();
+      loadCtx.roundRect ? loadCtx.roundRect(bX, bY, bW, bH, 5) : loadCtx.rect(bX, bY, bW, bH);
+      loadCtx.fill();
+
+      loadCtx.fillStyle = '#9933FF';
+      if (pct > 0) {
+        loadCtx.beginPath();
+        loadCtx.roundRect ? loadCtx.roundRect(bX, bY, bW*pct, bH, 5) : loadCtx.rect(bX, bY, bW*pct, bH);
+        loadCtx.fill();
+      }
+
+      loadCtx.fillStyle = 'rgba(255,255,255,0.6)';
+      loadCtx.font = '12px sans-serif';
+      loadCtx.fillText('กำลังโหลด... ' + loaded + '/' + total, W/2, bY + bH + 22);
+      loadCtx.textAlign = 'left';
+    }
+
+    // วาด loading เริ่มต้น
+    drawLoading(0, Object.keys(ASSET_PATHS.heroes).length +
+                   Object.keys(ASSET_PATHS.bosses).length +
+                   Object.keys(ASSET_PATHS.bg).length);
+
+    // โหลดรูปทั้งหมด แล้วเริ่มเกม
+    loadAllAssets(
+      function() {
+        // โหลดครบ → เริ่มเกม
+        SCENE.switch('menu', _gameCanvas);
+      },
+      function(loaded, total) {
+        drawLoading(loaded, total);
+      }
+    );
   </script>
 </body>
 </html>

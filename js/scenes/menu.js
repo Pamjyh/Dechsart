@@ -40,9 +40,16 @@ function renderMenu(canvas, ctx) {
   var f = menuState.frame;
 
   // BG
-  var bg = ctx.createLinearGradient(0,0,0,H);
-  bg.addColorStop(0, '#0d0620'); bg.addColorStop(1, '#1a0a2e');
-  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+  var menuBg = ASSETS && ASSETS.bg && ASSETS.bg.menu;
+  if (imgReady(menuBg)) {
+    ctx.drawImage(menuBg, 0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, 0, W, H);
+  } else {
+    var bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0, '#0d0620'); bg.addColorStop(1, '#1a0a2e');
+    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+  }
 
   // stars
   ctx.fillStyle = '#fff';
