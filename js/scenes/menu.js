@@ -370,31 +370,9 @@ function renderMenu(canvas, ctx) {
     drawLotus(ctx, l[0], l[1] + Math.sin(f*0.025)*3, l[2], l[3]);
   });
 
-  // ── ชื่อเกมภาษาอังกฤษ (DECHSART) ───────────────────────────
+  // ── subtitle ไทย (DECHSART/INFINITY อยู่ใน bg PNG แล้ว) ────
   ctx.textAlign = 'center';
-
-  // shadow ชื่อ
-  ctx.shadowColor = '#9933FF';
-  ctx.shadowBlur = 20 + Math.sin(f * 0.05) * 6;
-
-  // DECHSART — ตัวใหญ่ สีทอง
-  ctx.font = 'bold 52px Georgia, serif';
-  ctx.strokeStyle = '#4400AA'; ctx.lineWidth = 6;
-  ctx.strokeText('DECHSART', W/2, H*0.12);
-  ctx.fillStyle = '#FFD700';
-  ctx.fillText('DECHSART', W/2, H*0.12);
-
-  // INFINITY — เล็กกว่า สีม่วงทอง
-  ctx.shadowBlur = 10;
-  ctx.font = 'bold 22px Georgia, serif';
-  ctx.strokeStyle = '#330088'; ctx.lineWidth = 3;
-  ctx.strokeText('✦  I N F I N I T Y  ✦', W/2, H*0.175);
-  ctx.fillStyle = '#E8C8FF';
-  ctx.fillText('✦  I N F I N I T Y  ✦', W/2, H*0.175);
-
   ctx.shadowBlur = 0;
-
-  // subtitle ไทยเล็กๆ
   ctx.font = '14px sans-serif';
   ctx.fillStyle = 'rgba(255,220,255,0.7)';
   ctx.fillText('เดชศาสตร์อนันต์ · วีรบุรุษพลิกสูตรจักรวาล', W/2, H*0.215);
