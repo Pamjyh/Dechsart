@@ -109,7 +109,7 @@ var FIREBASE_CONFIG = {
 // ── Init ──────────────────────────────────────────────────────
 var _db = null;
 (function () {
-  if (FIREBASE_CONFIG.apiKey === 'AIzaSyDBtKwK5Ugwv8nZA1s6PtnrCXIvB2I_qv8') {
+  if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.startsWith('YOUR_')) {
     showMsg('⚠️ ยังไม่ได้ใส่ Firebase config — แก้ในไฟล์ teacher.html', 'err');
     return;
   }
