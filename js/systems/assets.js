@@ -12,19 +12,19 @@ var ASSETS = {
 };
 
 // ── path map ────────────────────────────────────────────────────
-// โฟลเดอร์ที่ gen มาชื่อ 'heros' ไม่ใช่ 'heroes'
+// อัปเดต: โฟลเดอร์ heroes (ถูกต้อง), ชื่อไฟล์ตัวใหญ่ตามที่ gen มา
 var ASSET_PATHS = {
   heroes: {
-    devasri:  'assets/heros/devasri.png',
-    hanuman:  'assets/heros/hanuman.png',
-    naka:     'assets/heros/naka.png',
-    kinnari:  'assets/heros/kinnari.png',
-    garuda:   'assets/heros/garuda.png',
-    indra:    'assets/heros/indra.png',
-    wessawan: 'assets/heros/wessawan.png',
-    yaksha:   'assets/heros/yaksha.png',
-    brahma:   'assets/heros/brahma.png',
-    narai:    'assets/heros/narai.png',
+    devasri:  'assets/heroes/Devasri.png',
+    hanuman:  'assets/heroes/Hanuman.png',
+    naka:     'assets/heroes/Naka.png',
+    kinnari:  'assets/heroes/Kinnari.png',
+    garuda:   'assets/heroes/Garuda.png',
+    indra:    'assets/heroes/Indra.png',
+    wessawan: 'assets/heroes/Wessawan.png',
+    yaksha:   'assets/heroes/Yaksha.png',
+    brahma:   'assets/heroes/Brahma.png',
+    narai:    'assets/heroes/Narai.png',
   },
   bosses: {
     fire_king:  'assets/bosses/fire_king.png',
@@ -34,7 +34,7 @@ var ASSET_PATHS = {
     final_boss: 'assets/bosses/final_boss.png',
   },
   bg: {
-    battle: 'assets/bg/battle_bg.png',
+    battle: 'assets/bg/battle_bg 1.png',
     menu:   'assets/bg/menu_bg.png',
   }
 };

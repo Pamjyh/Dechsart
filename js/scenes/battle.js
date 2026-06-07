@@ -128,9 +128,9 @@ function update() {
     return p.life > 0;
   });
 
-  // damage numbers
-  state.damageNumbers = state.damageNumbers.filter(d => {
-    d.y -= 1.5; d.life--; return d.life > 0;
+  // damage numbers (ใช้ vy แต่ละตัว)
+  state.damageNumbers = state.damageNumbers.filter(function(d) {
+    d.y += d.vy; d.vy *= 0.92; d.life--; return d.life > 0;
   });
 }
 
@@ -336,25 +336,56 @@ function onTimeout() {
   }
 }
 
-// ── Particles ────────────────────────────────────────────────────
-function spawnParticles(x, y, count, color) {
-  for (let i = 0; i < count; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = CONFIG.PARTICLES.SPEED_BASE * (0.5 + Math.random());
+// ── Particles (cartoon style) ────────────────────────────────────
+// shape: 'star' | 'circle' | 'ring'
+function spawnParticles(x, y, count, color, shape) {
+  shape = shape || 'star';
+  for (var i = 0; i < count; i++) {
+    var angle = Math.random() * Math.PI * 2;
+    var speed = CONFIG.PARTICLES.SPEED_BASE * (0.6 + Math.random() * 1.2);
+    var lifeBase = Math.floor(CONFIG.PARTICLES.LIFESPAN_MS / 16);
     state.particles.push({
-      x, y,
+      x: x, y: y,
       vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed - 2,
-      life: Math.floor(CONFIG.PARTICLES.LIFESPAN_MS / 16 * (0.6 + Math.random() * 0.8)),
-      maxLife: Math.floor(CONFIG.PARTICLES.LIFESPAN_MS / 16),
-      color,
-      size: 3 + Math.random() * 4,
+      vy: Math.sin(angle) * speed - 2.5,
+      life: Math.floor(lifeBase * (0.5 + Math.random() * 0.8)),
+      maxLife: lifeBase,
+      color: color,
+      size: 4 + Math.random() * 6,
+      shape: i % 3 === 0 ? 'circle' : shape,
+      rotation: Math.random() * Math.PI * 2,
+      spin: (Math.random() - 0.5) * 0.3,
     });
   }
 }
 
+// วาด star shape
+function drawStar(ctx, x, y, r, points, color, alpha) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color;
+  ctx.strokeStyle = 'rgba(0,0,0,' + (alpha * 0.4) + ')';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (var i = 0; i < points * 2; i++) {
+    var radius = i % 2 === 0 ? r : r * 0.45;
+    var a = (i / (points * 2)) * Math.PI * 2 - Math.PI / 2;
+    if (i === 0) ctx.moveTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius);
+    else ctx.lineTo(x + Math.cos(a) * radius, y + Math.sin(a) * radius);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.globalAlpha = 1;
+  ctx.lineWidth = 1;
+}
+
 function spawnDamageNumber(x, y, value, color) {
-  state.damageNumbers.push({ x, y, value, color, life: 50, maxLife: 50 });
+  state.damageNumbers.push({
+    x: x, y: y, value: value, color: color,
+    life: 55, maxLife: 55,
+    scale: 0.3,   // เริ่มเล็ก → เด้งขึ้นใหญ่
+    vy: -2.5,
+  });
 }
 
 // ── Layout helpers ───────────────────────────────────────────────
@@ -498,31 +529,62 @@ function render() {
     drawFeedback(W, H, false);
   }
 
-  // Particles
-  for (const p of state.particles) {
-    const alpha = p.life / p.maxLife;
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
-  }
+  // Particles (cartoon stars + circles)
+  state.particles.forEach(function(p) {
+    var alpha = p.life / p.maxLife;
+    p.rotation += p.spin;
+    if (p.shape === 'star') {
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.rotate(p.rotation);
+      drawStar(ctx, 0, 0, p.size, 4, p.color, alpha);
+      ctx.restore();
+    } else {
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = p.color;
+      ctx.strokeStyle = 'rgba(0,0,0,' + (alpha * 0.3) + ')';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.size * 0.7, 0, Math.PI * 2);
+      ctx.fill(); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = 1;
+    }
+  });
   ctx.globalAlpha = 1;
 
-  // Damage numbers
-  for (const d of state.damageNumbers) {
-    const alpha = d.life / d.maxLife;
+  // Damage numbers (cartoon pop + bounce)
+  state.damageNumbers.forEach(function(d) {
+    var t = 1 - d.life / d.maxLife; // 0→1
+    // เด้ง: scale เพิ่มเร็ว แล้วค่อยหด
+    var sc = t < 0.25 ? (t / 0.25) * 1.3
+           : t < 0.4  ? 1.3 - (t - 0.25) / 0.15 * 0.3
+           : 1.0;
+    var alpha = d.life < 20 ? d.life / 20 : 1;
+    var isBig = d.value > 30;
+    var fontSize = (isBig ? 32 : 24) * sc;
+    var txt = isBig ? d.value + '!' : String(d.value);
+
+    ctx.save();
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = d.color;
-    ctx.font = `bold ${d.value > 30 ? 28 : 22}px sans-serif`;
+    ctx.font = 'bold ' + Math.round(fontSize) + 'px sans-serif';
     ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // ขอบดำหนา (cartoon outline)
     ctx.strokeStyle = '#000';
-    ctx.lineWidth = 3;
-    ctx.strokeText(d.value > 30 ? `${d.value}!` : String(d.value), d.x, d.y);
-    ctx.fillText(d.value > 30 ? `${d.value}!` : String(d.value), d.x, d.y);
+    ctx.lineWidth = Math.max(3, fontSize * 0.18);
+    ctx.strokeText(txt, d.x, d.y);
+    ctx.fillStyle = d.color;
+    ctx.fillText(txt, d.x, d.y);
+    ctx.restore();
+  });
+  ctx.lineWidth = 1;
+
+  // Impact flash (cartoon crit effect)
+  if (state.phase === 'feedback' && state.feedbackType === 'correct_crit' && state.feedbackTimer > 45) {
+    var flashAlpha = (state.feedbackTimer - 45) / 10 * 0.45;
+    ctx.fillStyle = 'rgba(255,240,100,' + flashAlpha + ')';
+    ctx.fillRect(0, 0, W, H);
   }
-  ctx.globalAlpha = 1;
-  ctx.lineWidth   = 1;
 
   // Victory / Defeat
   if (state.phase === 'victory')  drawEndScreen(W, H, true);
@@ -547,17 +609,51 @@ function drawStars(W, H) {
 }
 
 function drawHPBar(x, y, w, h, hp, maxHp, color, label) {
-  const pct = hp / maxHp;
-  ctx.fillStyle = CONFIG.COLORS.HP_BG;
-  roundRect(ctx, x, y, w, h, h / 2); ctx.fill();
+  var pct = hp / maxHp;
+  var r = h / 2;
 
-  ctx.fillStyle = color;
-  if (pct > 0) { roundRect(ctx, x, y, w * pct, h, h / 2); ctx.fill(); }
+  // ขอบดำ (cartoon outline)
+  ctx.fillStyle = '#111';
+  roundRect(ctx, x - 2, y - 2, w + 4, h + 4, r + 2); ctx.fill();
 
+  // พื้น bar
+  ctx.fillStyle = '#2a1a2a';
+  roundRect(ctx, x, y, w, h, r); ctx.fill();
+
+  // fill gradient
+  if (pct > 0) {
+    var grad = ctx.createLinearGradient(x, y, x, y + h);
+    grad.addColorStop(0, lightenColor(color, 40));
+    grad.addColorStop(1, color);
+    ctx.fillStyle = grad;
+    roundRect(ctx, x, y, w * pct, h, r); ctx.fill();
+
+    // shine บน bar
+    ctx.fillStyle = 'rgba(255,255,255,0.25)';
+    roundRect(ctx, x + 1, y + 1, w * pct - 2, h * 0.4, r); ctx.fill();
+  }
+
+  // ขอบใน (cartoon border)
+  ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+  ctx.lineWidth = 1;
+  roundRect(ctx, x, y, w, h, r); ctx.stroke();
+  ctx.lineWidth = 1;
+
+  // label + numbers
   ctx.fillStyle = '#fff';
-  ctx.font = '10px sans-serif';
+  ctx.font = 'bold 10px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(`${label} ${hp}/${maxHp}`, x + 6, y + h - 3);
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 2;
+  ctx.strokeText(label + ' ' + hp + '/' + maxHp, x + 6, y + h - 2);
+  ctx.fillText(label + ' ' + hp + '/' + maxHp, x + 6, y + h - 2);
+  ctx.lineWidth = 1;
+}
+
+// helper: lighten hex color
+function lightenColor(hex, amount) {
+  var r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  r = Math.min(255, r + amount); g = Math.min(255, g + amount); b = Math.min(255, b + amount);
+  return '#' + [r,g,b].map(function(v){ return ('0'+v.toString(16)).slice(-2); }).join('');
 }
 
 function drawQuestionBox(W, H) {
@@ -597,19 +693,47 @@ function drawAnswerButtons(W, H) {
     if (state.phase === 'boss_attack' && state.feedbackType !== 'timeout' && val !== q.answer && state.lastChosen === val)
       bgColor = CONFIG.COLORS.ANSWER_WRONG;
 
-    ctx.fillStyle = bgColor;
-    roundRect(ctx, r.x, r.y, r.w, r.h, 10);
+    // ขอบดำ cartoon
+    ctx.fillStyle = '#111';
+    roundRect(ctx, r.x - 2, r.y - 2, r.w + 4, r.h + 4, 13);
     ctx.fill();
 
-    ctx.strokeStyle = 'rgba(120, 100, 220, 0.5)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, r.x, r.y, r.w, r.h, 10);
-    ctx.stroke();
+    // bg gradient
+    var btnGr = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+    if (bgColor === CONFIG.COLORS.ANSWER_CORRECT) {
+      btnGr.addColorStop(0, '#5aff7a'); btnGr.addColorStop(1, '#22bb44');
+    } else if (bgColor === CONFIG.COLORS.ANSWER_WRONG) {
+      btnGr.addColorStop(0, '#ff6666'); btnGr.addColorStop(1, '#cc2222');
+    } else {
+      btnGr.addColorStop(0, '#3a2060'); btnGr.addColorStop(1, '#220d50');
+    }
+    ctx.fillStyle = btnGr;
+    roundRect(ctx, r.x, r.y, r.w, r.h, 11);
+    ctx.fill();
 
-    ctx.fillStyle = CONFIG.COLORS.TEXT_MAIN;
+    // shine บนปุ่ม
+    ctx.fillStyle = 'rgba(255,255,255,0.12)';
+    roundRect(ctx, r.x + 2, r.y + 2, r.w - 4, r.h * 0.38, 9);
+    ctx.fill();
+
+    // ขอบสี
+    ctx.strokeStyle = bgColor === CONFIG.COLORS.ANSWER_CORRECT ? '#aaffbb'
+                    : bgColor === CONFIG.COLORS.ANSWER_WRONG   ? '#ffaaaa'
+                    : 'rgba(160,120,255,0.8)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, r.x, r.y, r.w, r.h, 11);
+    ctx.stroke();
+    ctx.lineWidth = 1;
+
+    // text + outline
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2 + 8);
+    ctx.textBaseline = 'middle';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.strokeText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+    ctx.lineWidth = 1; ctx.textBaseline = 'alphabetic';
   });
 }
 
