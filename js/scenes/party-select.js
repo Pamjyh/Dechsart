@@ -103,9 +103,9 @@ function handlePartyTap(cx, cy, canvas) {
     return;
   }
 
-  // ── ปุ่ม เริ่มสู้! ─────────────────────────────
-  var btnW = 200, btnH = 50;
-  var bx = (W - btnW) / 2, by = H - 70;
+  // ── ปุ่ม เริ่มสู้! — ตรงกับ render: by=H-10, btnH=40 ──────
+  var btnW = 200, btnH = 40;
+  var bx = (W - btnW) / 2, by = H - 10 - btnH;
   if (partyState.selected.length > 0 &&
       cx >= bx && cx <= bx + btnW && cy >= by && cy <= by + btnH) {
     var save = partyState.save;
@@ -196,7 +196,7 @@ function renderPartySelect(canvas, ctx) {
     var fx = startX + col * cW, fy = startY + row * (cH + 8);
     var fw = cW - 4;
 
-    if (fy + cH < 52 || fy > H - 60) return; // clip
+    if (fy + cH < 52 || fy > H - 102) return; // clip (footer=100px)
 
     var isSelected = partyState.selected.includes(hid);
     var selIdx     = partyState.selected.indexOf(hid);
@@ -211,8 +211,9 @@ function renderPartySelect(canvas, ctx) {
     psRR(ctx, fx, fy, fw, cH, 10); ctx.stroke();
     ctx.lineWidth = 1;
 
-    // Draw hero (mini)
-    hero.draw(ctx, fx + fw / 2, fy + 44, 36, f + i * 17);
+    // Draw hero (mini) — ปิด shadow ก่อน draw เพราะ glow จ้าเกินใน card ขนาดเล็ก
+    ctx.shadowBlur = 0;
+    hero.draw(ctx, fx + fw / 2, fy + 48, 42, f + i * 17);
 
     // element badge
     ctx.fillStyle = ELEM_COLORS[hero.element] || '#888';
@@ -250,46 +251,72 @@ function renderPartySelect(canvas, ctx) {
 
   ctx.textAlign = 'left';
 
-  // Footer: ปุ่มเริ่ม
-  ctx.fillStyle = '#0d0620'; ctx.fillRect(0, H - 80, W, 80);
-  ctx.fillStyle = '#1a0a3e'; ctx.fillRect(0, H - 78, W, 2);
+  // ── Footer 100px — แยก preview กับ button ไม่ทับกัน ──────────
+  var FOOTER_H = 100;
+  ctx.fillStyle = '#0d0620'; ctx.fillRect(0, H - FOOTER_H, W, FOOTER_H);
+  ctx.fillStyle = '#1a0a3e'; ctx.fillRect(0, H - FOOTER_H, W, 2);
 
-  // selected party preview (3 slots)
+  // ── Selected party preview (3 slots) — แถวบนของ footer ──────
+  var slotSize = 36, slotGap = 14;
+  var slotY = H - FOOTER_H + 18;           // top of slot box
+  var slotCY = slotY + slotSize / 2;       // center Y of slot
+  var slotStartX = W / 2 - (slotSize + slotGap) - slotSize / 2;
+
   [0, 1, 2].forEach(function(i) {
-    var sx = W / 2 + (i - 1) * 52, sy = H - 58;
+    var sx = slotStartX + i * (slotSize + slotGap) + slotSize / 2;
     var hid = partyState.selected[i];
     var hero = hid ? getHeroById(hid) : null;
 
-    ctx.fillStyle = hero ? '#2a1a4e' : '#111';
-    psRR(ctx, sx - 20, sy - 20, 40, 40, 8); ctx.fill();
-    ctx.strokeStyle = hero ? (ELEM_COLORS[hero.element] || '#555') : '#333';
+    // slot bg
+    ctx.fillStyle = hero ? '#2a1a4e' : '#1a1a2e';
+    psRR(ctx, sx - slotSize/2, slotY, slotSize, slotSize, 8); ctx.fill();
+    ctx.strokeStyle = hero ? (ELEM_COLORS[hero.element] || '#9933FF') : '#333';
     ctx.lineWidth = hero ? 2 : 1;
-    psRR(ctx, sx - 20, sy - 20, 40, 40, 8); ctx.stroke();
+    psRR(ctx, sx - slotSize/2, slotY, slotSize, slotSize, 8); ctx.stroke();
     ctx.lineWidth = 1;
 
     if (hero) {
-      hero.draw(ctx, sx, sy, 16, f);
+      ctx.shadowBlur = 0;
+      hero.draw(ctx, sx, slotCY, 14, f);
+      // เลข order badge
+      ctx.fillStyle = ELEM_COLORS[hero.element] || '#9933FF';
+      ctx.beginPath(); ctx.arc(sx - slotSize/2 + 9, slotY + 9, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#FFF'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText(String(i + 1), sx - slotSize/2 + 9, slotY + 13);
     } else {
-      ctx.fillStyle = '#333'; ctx.font = '18px sans-serif'; ctx.textAlign = 'center';
-      ctx.fillText('+', sx, sy + 6);
+      ctx.fillStyle = '#444'; ctx.font = '16px sans-serif'; ctx.textAlign = 'center';
+      ctx.fillText('+', sx, slotCY + 6);
     }
   });
 
-  // Start button
-  var btnW = 180, btnH = 46;
-  var bx = (W - btnW) / 2, by = H - 22;
+  // slot label
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('ทีมที่เลือก (' + partyState.selected.length + '/3)', W / 2, slotY + slotSize + 12);
+
+  // ── Start button — แถวล่างของ footer ────────────────────────
+  var btnW = 200, btnH = 40;
+  var bx = (W - btnW) / 2, by = H - 10;
   var canStart = partyState.selected.length > 0;
-  var pulse = Math.sin(f * 0.1) * 6;
-  ctx.shadowColor = '#9933FF'; ctx.shadowBlur = canStart ? 12 + pulse : 0;
-  ctx.fillStyle = canStart ? '#3d1a6e' : '#222';
+  var pulse = Math.sin(f * 0.1) * 5;
+
+  ctx.shadowColor = '#9933FF'; ctx.shadowBlur = canStart ? 10 + pulse : 0;
+  ctx.fillStyle = canStart ? '#3d1a6e' : '#1a1a2e';
   psRR(ctx, bx, by - btnH, btnW, btnH, 12); ctx.fill();
   ctx.shadowBlur = 0;
   ctx.strokeStyle = canStart ? '#9933FF' : '#333'; ctx.lineWidth = canStart ? 2 : 1;
   psRR(ctx, bx, by - btnH, btnW, btnH, 12); ctx.stroke(); ctx.lineWidth = 1;
+
   ctx.fillStyle = canStart ? '#FFD700' : '#555';
-  ctx.font = 'bold 18px sans-serif'; ctx.textAlign = 'center';
-  ctx.textAlign = 'center';
-  ctx.fillText(canStart ? 'เริ่มสู้!' : 'เลือก hero ก่อน', W / 2, by - btnH / 2 + 7);
+  ctx.font = 'bold 17px sans-serif';
+  var _psLabel = canStart ? 'เริ่มสู้!' : 'เลือก hero ก่อน';
+  var _psIconW = canStart ? 26 : 0;
+  var _psGap   = canStart ? 6 : 0;
+  var _psLabelW = ctx.measureText(_psLabel).width;
+  var _psSx = Math.round(W/2 - (_psIconW + _psGap + _psLabelW)/2);
+  ctx.textAlign = 'left';
+  if (canStart) ctx.fillText('⚔️', _psSx, by - btnH/2 + 7);
+  ctx.fillText(_psLabel, _psSx + _psIconW + _psGap, by - btnH/2 + 7);
   ctx.textAlign = 'left';
 }
 

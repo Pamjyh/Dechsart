@@ -397,11 +397,17 @@ function renderMenu(canvas, ctx) {
   menuRoundRect(ctx, bx - 2, by - 2, btnW + 4, btnH + 4, 32); ctx.stroke();
   ctx.lineWidth = 1;
 
-  // ข้อความปุ่ม
+  // ข้อความปุ่ม — ใช้ manual centering แทน textAlign=center เพื่อแก้ iOS emoji bug
   ctx.font = 'bold 24px sans-serif';
   ctx.fillStyle = '#FFD700';
-  ctx.textAlign = 'center';
-  ctx.fillText('เริ่มผจญภัย', W/2, by + btnH/2 + 9);
+  var _menuLabel = 'เริ่มผจญภัย';
+  var _menuIconW = 28;
+  var _menuLabelW = ctx.measureText(_menuLabel).width;
+  var _menuTotalW = _menuIconW + 6 + _menuLabelW;
+  var _menuSx = Math.round(W/2 - _menuTotalW/2);
+  ctx.textAlign = 'left';
+  ctx.fillText('⚔️', _menuSx, by + btnH/2 + 9);
+  ctx.fillText(_menuLabel, _menuSx + _menuIconW + 6, by + btnH/2 + 9);
 
   // ── version ────────────────────────────────────────────────
   ctx.fillStyle = 'rgba(255,255,255,0.28)';

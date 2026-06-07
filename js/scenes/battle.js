@@ -88,14 +88,12 @@ function resizeCanvas() {
   if (!canvas) return;
   var W = CONFIG.CANVAS.BASE_WIDTH;
   var H = CONFIG.CANVAS.BASE_HEIGHT;
-  // ใช้ game-wrap แทน window เพื่อแก้ iOS Safari viewport bug (dvh ≠ window.innerHeight)
   var vw = window.visualViewport ? window.visualViewport.width  : window.innerWidth;
   var vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
   var scale = Math.min(vw / W, vh / H);
+  // เปลี่ยนแค่ CSS style — ห้าม set canvas.width/height เพราะ reset ctx ทิ้งทั้งหมด
   canvas.style.width  = W * scale + 'px';
   canvas.style.height = H * scale + 'px';
-  canvas.width  = W;
-  canvas.height = H;
 }
 
 // ── Game Loop ────────────────────────────────────────────────────
@@ -808,8 +806,7 @@ function drawEndScreen(W, H, victory) {
   ctx.fillStyle = victory ? '#2d7a3a' : '#7a2d2d';
   roundRect(ctx, b1x, b1y, btn1W, btn1H, 12); ctx.fill();
   ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText(victory ? 'ชั้นต่อไป  ▶' : '↺  ลองใหม่', W / 2, b1y + btn1H / 2 + 7);
+  drawIconLabel(ctx, victory ? '⬆️' : '🔄', victory ? 'ชั้นต่อไป' : 'ลองใหม่', W / 2, b1y + btn1H / 2 + 7, 26);
 
   // ปุ่มรอง: กลับหน้าหอ
   var btn2W = 220, btn2H = 44;
@@ -820,8 +817,7 @@ function drawEndScreen(W, H, victory) {
   roundRect(ctx, b2x, b2y, btn2W, btn2H, 12); ctx.stroke();
   ctx.lineWidth = 1;
   ctx.fillStyle = '#CCC'; ctx.font = '17px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('◄  กลับหน้าหอ', W / 2, b2y + btn2H / 2 + 6);
+  drawIconLabel(ctx, '⬅️', 'กลับหน้าหอ', W / 2, b2y + btn2H / 2 + 6, 22);
   ctx.textAlign = 'left';
 
   // ผูก handler ครั้งเดียว รองรับทั้ง click และ touchend (iOS fix)
@@ -871,6 +867,18 @@ function drawEndScreen(W, H, victory) {
     canvas.addEventListener('click',    endClickH);
     canvas.addEventListener('touchend', endTouchH, { passive: false });
   }
+}
+
+// วาด icon + label ให้กึ่งกลาง cx โดยไม่พึ่ง textAlign=center กับ emoji
+// (iOS Canvas วัด emoji width ไม่แม่น → ใช้ iconW fixed แทน)
+function drawIconLabel(ctx, icon, label, cx, y, iconW) {
+  var gap = 6;
+  var labelW = ctx.measureText(label).width;
+  var totalW = iconW + gap + labelW;
+  var sx = Math.round(cx - totalW / 2);
+  ctx.textAlign = 'left';
+  ctx.fillText(icon,  sx, y);
+  ctx.fillText(label, sx + iconW + gap, y);
 }
 
 function roundRect(ctx, x, y, w, h, r) {
