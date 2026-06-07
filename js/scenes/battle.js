@@ -83,9 +83,13 @@ function initBattle(canvasEl, floor, saveData) {
 
 function resizeCanvas() {
   if (!canvas) return;
-  const W = CONFIG.CANVAS.BASE_WIDTH;
-  const H = CONFIG.CANVAS.BASE_HEIGHT;
-  const scale = Math.min(window.innerWidth / W, window.innerHeight / H);
+  var W = CONFIG.CANVAS.BASE_WIDTH;
+  var H = CONFIG.CANVAS.BASE_HEIGHT;
+  // ใช้ game-wrap แทน window เพื่อแก้ iOS Safari viewport bug (dvh ≠ window.innerHeight)
+  var wrap = document.getElementById('game-wrap');
+  var scale = wrap
+    ? Math.min(wrap.clientWidth / W, wrap.clientHeight / H)
+    : Math.min(window.innerWidth / W, window.innerHeight / H);
   canvas.style.width  = W * scale + 'px';
   canvas.style.height = H * scale + 'px';
   canvas.width  = W;
@@ -182,17 +186,28 @@ function onInput(e) {
 }
 
 function handleTap(clientX, clientY) {
+  var rect  = canvas.getBoundingClientRect();
+  var scaleX = CONFIG.CANVAS.BASE_WIDTH  / rect.width;
+  var scaleY = CONFIG.CANVAS.BASE_HEIGHT / rect.height;
+  var x = (clientX - rect.left) * scaleX;
+  var y = (clientY - rect.top)  * scaleY;
+
+  // ปุ่มกลับหอ (top-left) — ทำงานทุก phase ยกเว้น end screen
+  if (state.phase !== 'victory' && state.phase !== 'defeat') {
+    if (x >= 6 && x <= 58 && y >= 6 && y <= 34) {
+      if (inputAbort) inputAbort.abort();
+      cancelAnimationFrame(animId);
+      window.removeEventListener('resize', resizeCanvas);
+      SCENE.switch('tower', canvas);
+      return;
+    }
+  }
+
   if (state.phase !== 'question') return;
 
-  const rect  = canvas.getBoundingClientRect();
-  const scaleX = CONFIG.CANVAS.BASE_WIDTH  / rect.width;
-  const scaleY = CONFIG.CANVAS.BASE_HEIGHT / rect.height;
-  const x = (clientX - rect.left) * scaleX;
-  const y = (clientY - rect.top)  * scaleY;
-
-  const btnRegions = getAnswerRegions();
-  for (let i = 0; i < btnRegions.length; i++) {
-    const r = btnRegions[i];
+  var btnRegions = getAnswerRegions();
+  for (var i = 0; i < btnRegions.length; i++) {
+    var r = btnRegions[i];
     if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
       onAnswerSelected(state.question.choices[i]);
       return;
@@ -430,12 +445,23 @@ function render() {
   // Stars
   drawStars(W, H);
 
+  // ปุ่มกลับ (top-left) — แสดงเฉพาะตอนอยู่ในเกม ไม่ใช่ end screen
+  if (state.phase !== 'victory' && state.phase !== 'defeat') {
+    ctx.fillStyle = 'rgba(40,20,80,0.75)';
+    roundRect(ctx, 6, 6, 52, 28, 7); ctx.fill();
+    ctx.strokeStyle = 'rgba(150,100,255,0.6)'; ctx.lineWidth = 1;
+    roundRect(ctx, 6, 6, 52, 28, 7); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.fillStyle = '#DDD'; ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⬅ หอ', 32, 24);
+  }
+
   // Floor label
   ctx.fillStyle = 'rgba(255,255,255,0.5)';
   ctx.font = '13px sans-serif';
   ctx.textAlign = 'left';
   var tierLabel = state.battleRound <= 3 ? '' : state.battleRound <= 6 ? ' 🔥' : ' 💥';
-  ctx.fillText('ชั้น ' + state.floor + '  ข้อที่ ' + (state.battleRound+1) + tierLabel, 14, 22);
+  ctx.fillText('ชั้น ' + state.floor + '  ข้อที่ ' + (state.battleRound+1) + tierLabel, 66, 22);
 
   // Score + Combo
   ctx.textAlign = 'right';
@@ -768,51 +794,78 @@ function drawEndScreen(W, H, victory) {
   ctx.fillStyle = victory ? '#FFD700' : '#FF4444';
   ctx.font = 'bold 48px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(victory ? '🎉 ชนะ!' : '💀 แพ้', W / 2, H * 0.38);
+  ctx.fillText(victory ? '🎉 ชนะ!' : '💀 แพ้', W / 2, H * 0.35);
 
   ctx.fillStyle = '#fff';
   ctx.font = '20px sans-serif';
-  ctx.fillText(`คะแนน: ${state.score}`, W / 2, H * 0.48);
+  ctx.fillText('คะแนน: ' + state.score, W / 2, H * 0.45);
 
-  // Restart button
-  const btnW = 200, btnH = 52;
-  const bx = (W - btnW) / 2, by = H * 0.56;
+  // ปุ่มหลัก: ชั้นต่อไป (ชนะ) | ลองใหม่ (แพ้)
+  var btn1W = 220, btn1H = 52;
+  var b1x = (W - btn1W) / 2, b1y = H * 0.51;
   ctx.fillStyle = victory ? '#2d7a3a' : '#7a2d2d';
-  roundRect(ctx, bx, by, btnW, btnH, 12); ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.font = 'bold 20px sans-serif';
-  ctx.fillText('เล่นใหม่', W / 2, by + btnH / 2 + 7);
+  roundRect(ctx, b1x, b1y, btn1W, btn1H, 12); ctx.fill();
+  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
+  ctx.fillText(victory ? '⬆️ ชั้นต่อไป' : '🔄 ลองใหม่', W / 2, b1y + btn1H / 2 + 7);
 
-  // ผูก click เดียว
+  // ปุ่มรอง: กลับหน้าหอ
+  var btn2W = 220, btn2H = 44;
+  var b2x = (W - btn2W) / 2, b2y = b1y + btn1H + 12;
+  ctx.fillStyle = '#2a2a4a';
+  roundRect(ctx, b2x, b2y, btn2W, btn2H, 12); ctx.fill();
+  ctx.strokeStyle = '#6655AA'; ctx.lineWidth = 1.5;
+  roundRect(ctx, b2x, b2y, btn2W, btn2H, 12); ctx.stroke();
+  ctx.lineWidth = 1;
+  ctx.fillStyle = '#CCC'; ctx.font = '17px sans-serif';
+  ctx.fillText('⬅ กลับหน้าหอ', W / 2, b2y + btn2H / 2 + 6);
+  ctx.textAlign = 'left';
+
+  // ผูก handler ครั้งเดียว รองรับทั้ง click และ touchend (iOS fix)
   if (!canvas._endHandled) {
     canvas._endHandled = true;
-    const handler = (e) => {
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = W / rect.width, scaleY = H / rect.height;
-      const cx = (e.clientX - rect.left) * scaleX;
-      const cy = (e.clientY - rect.top)  * scaleY;
-      if (cx >= bx && cx <= bx + btnW && cy >= by && cy <= by + btnH) {
-        canvas._endHandled = false;
-        canvas.removeEventListener('click', handler);
-        if (victory) {
-          // Crystal reward
-          var crystalGain = calcCrystalReward(state.floor, state.critCount || 0);
-          state.saveData.crystals = (state.saveData.crystals || 0) + crystalGain;
-          // Daily quest: floor cleared
-          state.saveData = onFloorCleared(state.saveData);
-          // Daily quest: boss defeated (every 10th floor)
-          if (state.floor % 10 === 0) {
-            state.saveData = onBossDefeated(state.saveData, state.score);
-          }
-          var updated = updateAfterVictory(state.saveData, state.floor, state.score);
-          SCENE.switch('tower', canvas);
-        } else {
-          updateAfterDefeat(state.saveData, state.score);
-          SCENE.switch('tower', canvas);
-        }
+
+    function doEndAction(clientX, clientY) {
+      var rect = canvas.getBoundingClientRect();
+      var sx = W / rect.width, sy = H / rect.height;
+      var cx = (clientX - rect.left) * sx;
+      var cy = (clientY - rect.top)  * sy;
+      var hit1 = cx >= b1x && cx <= b1x + btn1W && cy >= b1y && cy <= b1y + btn1H;
+      var hit2 = cx >= b2x && cx <= b2x + btn2W && cy >= b2y && cy <= b2y + btn2H;
+      if (!hit1 && !hit2) return;
+
+      canvas._endHandled = false;
+      canvas.removeEventListener('click',    endClickH);
+      canvas.removeEventListener('touchend', endTouchH);
+
+      // บันทึก crystal/quest ถ้าชนะ
+      function saveVictory() {
+        var crystalGain = calcCrystalReward(state.floor, state.critCount || 0);
+        state.saveData.crystals = (state.saveData.crystals || 0) + crystalGain;
+        state.saveData = onFloorCleared(state.saveData);
+        if (state.floor % 10 === 0) state.saveData = onBossDefeated(state.saveData, state.score);
+        updateAfterVictory(state.saveData, state.floor, state.score);
       }
+
+      if (hit1) {
+        if (victory) { saveVictory(); SCENE.switch('battle', canvas, { floor: state.floor + 1, save: state.saveData }); }
+        else         { updateAfterDefeat(state.saveData, state.score); SCENE.switch('battle', canvas, { floor: state.floor, save: state.saveData }); }
+      } else {
+        if (victory) saveVictory(); else updateAfterDefeat(state.saveData, state.score);
+        SCENE.switch('tower', canvas);
+      }
+    }
+
+    var endClickH = function(e) {
+      if (canvas._endTouched) { canvas._endTouched = false; return; }
+      doEndAction(e.clientX, e.clientY);
     };
-    canvas.addEventListener('click', handler);
+    var endTouchH = function(e) {
+      e.preventDefault();
+      canvas._endTouched = true;
+      doEndAction(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    };
+    canvas.addEventListener('click',    endClickH);
+    canvas.addEventListener('touchend', endTouchH, { passive: false });
   }
 }
 

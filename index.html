@@ -34,9 +34,10 @@
     var _gameCanvas = document.getElementById('battleCanvas');
     var W = CONFIG.CANVAS.BASE_WIDTH, H = CONFIG.CANVAS.BASE_HEIGHT;
 
-    // resize
+    // resize — ใช้ game-wrap แทน window เพื่อแก้ iOS Safari viewport bug
     function resizeGame() {
-      var s = Math.min(window.innerWidth / W, window.innerHeight / H);
+      var wrap = document.getElementById('game-wrap');
+      var s = Math.min(wrap.clientWidth / W, wrap.clientHeight / H);
       _gameCanvas.style.width  = W * s + 'px';
       _gameCanvas.style.height = H * s + 'px';
     }
