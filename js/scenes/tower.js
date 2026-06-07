@@ -103,6 +103,16 @@ function handleTowerTap(cx, cy, canvas) {
     return;
   }
 
+  // ── ปุ่ม Gacha ──
+  if (cx >= 8 && cx <= 98 && cy >= H - 38 && cy <= H - 6) {
+    cancelAnimationFrame(towerState.animId);
+    towerState._handlers.forEach(function(h) {
+      canvas.removeEventListener(h.type, h.fn);
+    });
+    SCENE.switch('gacha', canvas, { save: towerState.save });
+    return;
+  }
+
   // ── floor cells ──
   var floor = hitTestFloor(cx, cy + towerState.scrollY, W);
   if (floor !== null && floor <= save.maxFloor) {
@@ -112,7 +122,7 @@ function handleTowerTap(cx, cy, canvas) {
     });
     save.currentFloor = floor;
     saveProgress(save);
-    SCENE.switch('battle', canvas, { floor: floor, save: save });
+    SCENE.switch('party-select', canvas, { floor: floor, save: save });
   }
 }
 
@@ -230,8 +240,21 @@ function renderTower(canvas, ctx) {
 
   // ── footer ──────────────────────────────────────
   ctx.fillStyle = '#1a0a3e'; ctx.fillRect(0, H - 44, W, 44);
-  ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('คะแนนสะสม: ' + save.totalScore + '  |  เล่นแล้ว: ' + save.gamesPlayed + ' ครั้ง', W / 2, H - 14);
+
+  // ปุ่ม Gacha (ซ้าย footer)
+  ctx.fillStyle = '#3d0a5e';
+  towerRR(ctx, 8, H-38, 90, 32, 8); ctx.fill();
+  ctx.strokeStyle = '#9933FF'; ctx.lineWidth = 1;
+  towerRR(ctx, 8, H-38, 90, 32, 8); ctx.stroke(); ctx.lineWidth = 1;
+  ctx.fillStyle = '#FFD700'; ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('✨ ปลุกเสก', 53, H - 16);
+
+  // Crystal count
+  ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('💎 ' + save.crystals, W - 50, H - 16);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
+  ctx.fillText('คะแนน: ' + save.totalScore, W/2, H - 16);
   ctx.textAlign = 'left';
 
   // ── scroll hint (ครั้งแรก) ──────────────────────

@@ -10,6 +10,11 @@ var DEFAULT_SAVE = {
   party: ['devasri'],
   totalScore: 0,
   gamesPlayed: 0,
+  opErrors: { '+': 0, '-': 0, '*': 0, '/': 0 },
+  crystals: 0,
+  pityEpic: 0,
+  pityLegendary: 0,
+  totalPulls: 0,
 };
 
 function loadProgress() {

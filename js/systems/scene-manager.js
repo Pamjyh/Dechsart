@@ -17,6 +17,13 @@ var SCENE = {
       initMenu(canvas);
     } else if (name === 'tower') {
       initTower(canvas);
+    } else if (name === 'gacha') {
+      var save = data ? data.save : loadProgress();
+      initGacha(canvas, save);
+    } else if (name === 'party-select') {
+      var floor = data ? data.floor : 1;
+      var save  = data ? data.save  : loadProgress();
+      initPartySelect(canvas, floor, save);
     } else if (name === 'battle') {
       var floor = data ? data.floor : 1;
       var save  = data ? data.save  : loadProgress();

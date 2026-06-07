@@ -5,7 +5,8 @@
 // ── State ────────────────────────────────────────────────────────
 const state = {
   floor: 1,
-  hero: null,
+  hero: null,      // active hero (ธาตุตรง)
+  party: [],        // array of hero objects (max 3)
   boss: null,
   heroHP: 0, heroMaxHP: 0,
   bossHP: 0, bossMaxHP: 0,
@@ -20,6 +21,11 @@ const state = {
   score: 0,
   combo: 0,
   saveData: null,
+  opErrors: null,
+  combos: [],        // active combos ใน party
+  flowState: false,  // ตอบถูก 5 ติด = crit ต่อไป 3 ข้อ
+  flowCount: 0,      // crit ที่เหลือจาก Flow State
+  critCount: 0,      // นับ critical hits ในรอบ (สำหรับ crystal reward)
   opCounts: { '+': 0, '-': 0, '*': 0, '/': 0 },
   currentOp: '+',
 };
@@ -38,10 +44,12 @@ function initBattle(canvasEl, floor, saveData) {
   window.addEventListener('resize', resizeCanvas);
 
   state.floor    = floor;
-  var heroId = (saveData.party && saveData.party[0]) || "devasri";
-  state.hero = HEROES[heroId] || STARTER_HERO;
+  // โหลด party ทั้งหมด
+  var partyIds = (saveData.party && saveData.party.length > 0) ? saveData.party : ['devasri'];
+  state.party = partyIds.map(function(id) { return HEROES[id] || STARTER_HERO; });
+  state.hero  = state.party[0]; // default active hero
   state.boss     = getBossForFloor(floor);
-  state.heroHP   = state.heroMaxHP = CONFIG.HP.HERO_BASE;
+  state.heroHP   = state.heroMaxHP = CONFIG.HP.HERO_BASE + (state.hero.hpBonus || 0);
   state.bossHP   = state.bossMaxHP = getBossHP(floor);
   state.phase    = 'idle';
   state.particles  = [];
@@ -50,7 +58,12 @@ function initBattle(canvasEl, floor, saveData) {
   state.score    = 0;
   state.combo    = 0;
   state.saveData = saveData;
+  state.opErrors = saveData.opErrors || { '+':0, '-':0, '*':0, '/':0 };
   state.currentOp = '+';
+  state.combos    = detectCombos(state.party);
+  state.flowState = false;
+  state.flowCount = 0;
+  state.critCount = 0;
 
   if (inputAbort) inputAbort.abort();
   inputAbort = new AbortController();
@@ -126,10 +139,28 @@ function startQuestion() {
   state.phase = 'question';
 }
 
+function getAvailableOps(floor) {
+  if (floor <= 10)  return ['+', '-'];
+  if (floor <= 20)  return ['+', '-'];
+  if (floor <= 35)  return ['+', '-', '*'];
+  if (floor <= 50)  return ['+', '-', '*', '/'];
+  return ['+', '-', '*', '/'];
+}
+
 function pickOp() {
-  // Phase 1 floor 1-10: บวกลบหลัก, สุ่ม
-  const ops = ['+', '-', '+', '-', '*'];
-  return ops[Math.floor(Math.random() * ops.length)];
+  var ops = getAvailableOps(state.floor);
+  var errors = state.opErrors || {};
+
+  // Weight: base 2 + accumulated errors (errors ยิ่งเยอะ ยิ่งถูกเลือกบ่อย)
+  var weights = ops.map(function(op) { return 2 + (errors[op] || 0); });
+  var total = weights.reduce(function(a, b) { return a + b; }, 0);
+  var rand = Math.random() * total;
+  var cum = 0;
+  for (var i = 0; i < ops.length; i++) {
+    cum += weights[i];
+    if (rand <= cum) return ops[i];
+  }
+  return ops[0];
 }
 
 // ── Input ────────────────────────────────────────────────────────
@@ -164,6 +195,29 @@ function handleTap(clientX, clientY) {
   }
 }
 
+
+// ── Combo Detection ───────────────────────────────────────────────
+function detectCombos(party) {
+  var elements = party.map(function(h) { return h.element; });
+  var combos = [];
+  var hasF = elements.includes('fire'),   hasW = elements.includes('water');
+  var hasT = elements.includes('thunder'),hasV = elements.includes('wind');
+  var hasM = elements.includes('mixed');
+
+  if (hasF && hasW)               combos.push('balance');     // Balance Strike
+  if (hasT && hasV)               combos.push('inverse');     // Inverse Blast
+  if ((hasF&&hasW&&hasT&&hasV)||hasM) combos.push('storm');   // Elemental Storm
+  return combos;
+}
+
+function getComboMultiplier(combos, elem) {
+  var mult = 1;
+  if (!elem) return mult;
+  if (combos.includes('balance') && (elem.id==='fire'||elem.id==='water'))  mult *= 1.3;
+  if (combos.includes('inverse') && (elem.id==='thunder'||elem.id==='wind')) mult *= 2.5;
+  return mult;
+}
+
 function onAnswerSelected(chosen) {
   state.lastChosen = chosen;
   const elapsed = performance.now() - state.questionStart;
@@ -171,14 +225,17 @@ function onAnswerSelected(chosen) {
 
   if (correct) {
     let mult, type;
-    if (elapsed < CONFIG.SPEED.CRITICAL_MS) {
-      mult = CONFIG.DAMAGE.HERO_BASE * CONFIG.SPEED.MULTIPLIER_CRIT;
+    var speedMult = 1 + (state.hero.speedBonus || 0);
+    var critMs = CONFIG.SPEED.CRITICAL_MS * speedMult;
+    var fastMs = CONFIG.SPEED.FAST_MS * speedMult;
+    if (elapsed < critMs) {
+      mult = (CONFIG.DAMAGE.HERO_BASE + (state.hero.dmgBonus || 0)) * CONFIG.SPEED.MULTIPLIER_CRIT;
       type = 'correct_crit'; playCritical();
-    } else if (elapsed < CONFIG.SPEED.FAST_MS) {
-      mult = CONFIG.DAMAGE.HERO_BASE * CONFIG.SPEED.MULTIPLIER_FAST;
+    } else if (elapsed < fastMs) {
+      mult = (CONFIG.DAMAGE.HERO_BASE + (state.hero.dmgBonus || 0)) * CONFIG.SPEED.MULTIPLIER_FAST;
       type = 'correct_fast'; playFastHit();
     } else {
-      mult = CONFIG.DAMAGE.HERO_BASE * CONFIG.SPEED.MULTIPLIER_NORMAL;
+      mult = (CONFIG.DAMAGE.HERO_BASE + (state.hero.dmgBonus || 0)) * CONFIG.SPEED.MULTIPLIER_NORMAL;
       type = 'correct_normal'; playHit();
     }
 
@@ -195,6 +252,17 @@ function onAnswerSelected(chosen) {
     state.bossHP  = Math.max(0, state.bossHP - dmg);
     state.score  += dmg;
     state.combo++;
+
+    // Flow State trigger (5 ติด)
+    if (state.combo > 0 && state.combo % 5 === 0 && state.flowCount === 0) {
+      state.flowCount = 3;
+      state.flowState = true;
+    }
+
+    // Elemental Storm: ถ้า combo includes storm → bonus particles
+    if (state.combos.includes('storm') && state.combo > 0 && state.combo % 3 === 0) {
+      spawnParticles(W * 0.5, H * 0.3, 20, '#FFD700');
+    }
 
     spawnParticles(
       canvas.width * 0.72, canvas.height * 0.3,
@@ -217,7 +285,14 @@ function onAnswerSelected(chosen) {
 
   } else {
     state.combo = 0;
-    const dmg = CONFIG.DAMAGE.BOSS_BASE;
+    // Adaptive: บันทึก error ของ op นี้
+    if (state.opErrors && state.currentOp) {
+      state.opErrors[state.currentOp] = (state.opErrors[state.currentOp] || 0) + 1;
+      if (state.saveData) {
+        state.saveData.opErrors = state.opErrors;
+      }
+    }
+    var dmg = CONFIG.DAMAGE.BOSS_BASE;
     state.heroHP = Math.max(0, state.heroHP - dmg);
     playWrong();
     spawnParticles(canvas.width * 0.28, canvas.height * 0.65, 8, '#FF4444');
@@ -323,16 +398,35 @@ function render() {
   drawHPBar(W * 0.08, H - 62, W * 0.84, 16, state.heroHP, state.heroMaxHP, CONFIG.COLORS.HP_HERO, 'ฮีโร่');
 
   // Hero
-  state.hero.draw(ctx, W * 0.28, H * 0.65, 55, state.frame);
+  // วาด party (3 heroes) ที่ล่าง
+  var partySize = state.party.length;
+  state.party.forEach(function(h, i) {
+    var hx = W * (0.5 + (i - (partySize-1)/2) * 0.28);
+    var hy = H * 0.68;
+    var isActive = (h === state.hero);
+    var heroSize = isActive ? 50 : 36;
+    if (isActive) {
+      // glow รอบ active hero
+      ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 12;
+    }
+    h.draw(ctx, hx, hy, heroSize, state.frame);
+    ctx.shadowBlur = 0;
+    // ชื่อ hero
+    ctx.fillStyle = isActive ? '#FFD700' : 'rgba(255,255,255,0.4)';
+    ctx.font = (isActive ? 'bold ' : '') + '9px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(h.name, hx, hy + heroSize + 10);
+  });
+  ctx.textAlign = 'left';
 
-  // Element indicator
+  // Element indicator (op ปัจจุบัน)
   if (state.currentOp) {
-    const elem = Object.values(CONFIG.ELEMENTS).find(e => e.op === state.currentOp);
-    if (elem) {
-      ctx.fillStyle = elem.color + 'CC';
-      ctx.font = 'bold 13px sans-serif';
+    var curElem = Object.values(CONFIG.ELEMENTS).find(function(e) { return e.op === state.currentOp; });
+    if (curElem) {
+      ctx.fillStyle = curElem.color + 'EE';
+      ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(elem.label, W * 0.28, H * 0.65 + 65);
+      ctx.fillText(curElem.label + ' operation', W / 2, H * 0.49);
     }
   }
 
@@ -554,6 +648,9 @@ function drawEndScreen(W, H, victory) {
         canvas._endHandled = false;
         canvas.removeEventListener('click', handler);
         if (victory) {
+          // Crystal reward
+          var crystalGain = calcCrystalReward(state.floor, state.critCount || 0);
+          state.saveData.crystals = (state.saveData.crystals || 0) + crystalGain;
           var updated = updateAfterVictory(state.saveData, state.floor, state.score);
           SCENE.switch('tower', canvas);
         } else {
