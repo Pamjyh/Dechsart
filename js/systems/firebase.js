@@ -100,23 +100,19 @@ var SUPA = (function () {
   }
 
   // ── Subscribe leaderboard (real-time onSnapshot) ──────────────
-  // คืน unsubscribe function — เรียก unsub() เมื่อออกจาก scene
-  // ⚠️ ครั้งแรก Firestore อาจ error + แสดง link สร้าง composite index
-  //    คลิก link ใน console แล้วรอ ~1 นาที
+  // ไม่ใช้ orderBy → ไม่ต้องสร้าง composite index
+  // sort ใน JS แทน (30 records ต่อวัน — เร็วพอ)
+  // cb(rows, errorMsg) — errorMsg = null ถ้าสำเร็จ
   function subscribeLeaderboard(date, classroomCode, cb) {
-    if (!isReady()) { cb([]); return function () {}; }
+    if (!isReady()) { cb([], 'Firebase ยังไม่พร้อม — ตรวจสอบ config.js'); return function () {}; }
     var q;
     if (classroomCode) {
       q = _db.collection('daily_scores')
         .where('date', '==', date)
-        .where('classroomCode', '==', classroomCode)
-        .orderBy('damageDealt', 'desc')
-        .limit(30);
+        .where('classroomCode', '==', classroomCode);
     } else {
       q = _db.collection('daily_scores')
-        .where('date', '==', date)
-        .orderBy('damageDealt', 'desc')
-        .limit(30);
+        .where('date', '==', date);
     }
     return q.onSnapshot(function (snap) {
       var rows = [];
@@ -128,10 +124,12 @@ var SUPA = (function () {
           correct_answers: d.correctAnswers  || 0
         });
       });
-      cb(rows);
+      // sort by damage desc, take top 30
+      rows.sort(function(a, b) { return b.damage_dealt - a.damage_dealt; });
+      cb(rows.slice(0, 30), null);
     }, function (e) {
       console.warn('[FB] subscribeLeaderboard:', e.message);
-      cb([]);
+      cb([], e.message);
     });
   }
 

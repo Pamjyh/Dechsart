@@ -9,6 +9,7 @@ var LeaderboardScene = (function () {
     mode: 'global',    // 'global' | 'classroom'
     rows: null,        // null = loading, [] = empty/loaded
     loadError: false,
+    errorMsg: '',      // error message จาก Firebase
     frame: 0,
     _handlers: [],
     _unsubFn: null     // real-time unsubscribe handle
@@ -50,13 +51,17 @@ var LeaderboardScene = (function () {
     if (_state._unsubFn) { _state._unsubFn(); _state._unsubFn = null; }
     _state.rows      = null;
     _state.loadError = false;
+    _state.errorMsg  = '';
     var date = SUPA.todayStr();
     var code = _state.mode === 'classroom' ? _state.save.classroomCode : null;
     if (!SUPA.isReady()) {
-      _state.rows = []; _state.loadError = true; return;
+      _state.rows = []; _state.loadError = true;
+      _state.errorMsg = 'Firebase ยังไม่พร้อม — ตรวจสอบ config.js'; return;
     }
-    _state._unsubFn = SUPA.subscribeLeaderboard(date, code, function (rows) {
-      _state.rows = rows || [];
+    _state._unsubFn = SUPA.subscribeLeaderboard(date, code, function (rows, errMsg) {
+      _state.rows      = rows || [];
+      _state.loadError = !!errMsg;
+      _state.errorMsg  = errMsg || '';
     });
   }
 
@@ -135,10 +140,16 @@ var LeaderboardScene = (function () {
       ctx.textAlign = 'left';
     } else if (_state.loadError || !SUPA.isReady()) {
       ctx.fillStyle = '#FF9999'; ctx.font = '13px sans-serif';
-      drawIconLabel(ctx, '⚠️', 'ยังไม่ได้ตั้งค่า Firebase', W / 2, listY + 30, 20);
+      drawIconLabel(ctx, '⚠️', 'โหลดไม่ได้', W / 2, listY + 30, 20);
       ctx.textAlign = 'center';
-      ctx.fillStyle = '#888'; ctx.font = '11px sans-serif';
-      ctx.fillText('ใส่ firebaseConfig ใน config.js', W / 2, listY + 52);
+      ctx.fillStyle = '#AAA'; ctx.font = '11px sans-serif';
+      // แสดง error message จริง (ช่วย debug)
+      var errLine = _state.errorMsg || 'ตรวจสอบ config.js หรือ internet';
+      // ตัดถ้ายาวเกิน 45 ตัว
+      if (errLine.length > 45) errLine = errLine.slice(0, 44) + '…';
+      ctx.fillText(errLine, W / 2, listY + 52);
+      ctx.fillStyle = '#666'; ctx.font = '10px sans-serif';
+      ctx.fillText('(ดู console สำหรับ error เต็ม)', W / 2, listY + 68);
       ctx.textAlign = 'left';
     } else if (_state.rows.length === 0) {
       ctx.fillStyle = '#888'; ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
