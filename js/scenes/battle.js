@@ -225,6 +225,8 @@ function handleTap(clientX, clientY) {
       if (inputAbort) inputAbort.abort();
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', resizeCanvas);
+      // บันทึก progress รวม correctAnswers ที่ตอบไปแล้วในรอบนี้
+      if (state.saveData) saveProgress(state.saveData);
       SCENE.switch('tower', canvas);
       return;
     }
@@ -341,6 +343,10 @@ function onAnswerSelected(chosen) {
       state.opErrors[state.currentOp] = (state.opErrors[state.currentOp] || 0) + 1;
       if (state.saveData) {
         state.saveData.opErrors = state.opErrors;
+        // daily.wrongAnswers (สำหรับ teacher dashboard)
+        if (state.saveData.daily) {
+          state.saveData.daily.wrongAnswers = (state.saveData.daily.wrongAnswers || 0) + 1;
+        }
       }
     }
     var dmg = CONFIG.DAMAGE.BOSS_BASE;
