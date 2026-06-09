@@ -14,6 +14,10 @@ var state = {
   question: null,
   phase: 'idle',      // 'idle' | 'question' | 'feedback' | 'boss_attack' | 'victory' | 'defeat'
   questionStart: 0,
+  // ── Timer snapshot (set ตอน startQuestion, ไม่ re-calc ระหว่างโจทย์) ──
+  currentTimeoutMs: 5000,
+  currentCritMs:    1250,
+  currentFastMs:    2750,
   feedbackType: null, // 'correct_crit' | 'correct_fast' | 'correct_normal' | 'wrong' | 'timeout'
   feedbackTimer: 0,
   particles: [],
@@ -35,6 +39,24 @@ var state = {
 var canvas, ctx;
 var animId = null;
 var inputAbort = null;
+
+// ── Timer scaling helper ──────────────────────────────────────────
+// คืน { timeoutMs, critMs, fastMs } ตาม floor + op
+// easy ops: + -   hard ops: * /
+function _getTimerMs(floor, op) {
+  var tiers = CONFIG.TIMER_TIERS;
+  var tier = tiers[tiers.length - 1]; // fallback = tier สุดท้าย
+  for (var i = 0; i < tiers.length; i++) {
+    if (floor <= tiers[i].maxFloor) { tier = tiers[i]; break; }
+  }
+  var isHard = (op === '*' || op === '/');
+  var timeout = isHard ? tier.hardMs : tier.easyMs;
+  return {
+    timeoutMs: timeout,
+    critMs:    Math.round(timeout * tier.critPct),
+    fastMs:    Math.round(timeout * tier.fastPct),
+  };
+}
 
 // ── Init ─────────────────────────────────────────────────────────
 function initBattle(canvasEl, floor, saveData) {
@@ -108,7 +130,7 @@ function update() {
   // timer
   if (state.phase === 'question') {
     const elapsed = performance.now() - state.questionStart;
-    if (elapsed >= CONFIG.SPEED.TIMEOUT_MS) {
+    if (elapsed >= state.currentTimeoutMs) {
       onTimeout();
     }
   }
@@ -145,6 +167,11 @@ function startQuestion() {
   state.currentOp = pickOp();
   state.question  = generateQuestion(state.currentOp, state.floor, state.battleRound);
   state.questionStart = performance.now();
+  // snapshot timer values ณ ตอนนี้ — ไม่ re-calc ระหว่างโจทย์ (QA req)
+  var t = _getTimerMs(state.floor, state.currentOp);
+  state.currentTimeoutMs = t.timeoutMs;
+  state.currentCritMs    = t.critMs;
+  state.currentFastMs    = t.fastMs;
   state.phase = 'question';
 }
 
@@ -246,8 +273,8 @@ function onAnswerSelected(chosen) {
   if (correct) {
     let mult, type;
     var speedMult = 1 + (state.hero.speedBonus || 0);
-    var critMs = CONFIG.SPEED.CRITICAL_MS * speedMult;
-    var fastMs = CONFIG.SPEED.FAST_MS * speedMult;
+    var critMs = state.currentCritMs * speedMult;
+    var fastMs = state.currentFastMs * speedMult;
     if (elapsed < critMs) {
       mult = (CONFIG.DAMAGE.HERO_BASE + (state.hero.dmgBonus || 0)) * CONFIG.SPEED.MULTIPLIER_CRIT;
       type = 'correct_crit'; playCritical();
@@ -490,11 +517,11 @@ function render() {
 
   // Timer bar — y=H*0.41
   if (state.phase === 'question') {
-    var elapsed = performance.now() - state.questionStart;
-    var pct = Math.max(0, 1 - elapsed / CONFIG.SPEED.TIMEOUT_MS);
-    var barW = W * 0.84;
-    var barX = W * 0.08;
-    var barY = H * 0.41;
+    var elapsed  = performance.now() - state.questionStart;
+    var pct      = Math.max(0, 1 - elapsed / state.currentTimeoutMs);
+    var barW     = W * 0.84;
+    var barX     = W * 0.08;
+    var barY     = H * 0.41;
 
     ctx.fillStyle = '#1a1a3a';
     roundRect(ctx, barX, barY, barW, 8, 4);
@@ -506,15 +533,15 @@ function render() {
     roundRect(ctx, barX, barY, barW * pct, 8, 4);
     ctx.fill();
 
-    // Speed hint
+    // Speed hint — ใช้ snapshot threshold (ตรง dynamic tier)
     ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillStyle = elapsed < CONFIG.SPEED.CRITICAL_MS ? '#FFD700'
-                  : elapsed < CONFIG.SPEED.FAST_MS     ? '#FF9900'
+    ctx.fillStyle = elapsed < state.currentCritMs ? '#FFD700'
+                  : elapsed < state.currentFastMs ? '#FF9900'
                   : 'rgba(255,255,255,0.4)';
     ctx.fillText(
-      elapsed < CONFIG.SPEED.CRITICAL_MS ? '⚡ Critical zone!' :
-      elapsed < CONFIG.SPEED.FAST_MS     ? '🔥 Fast zone'      : '💤',
+      elapsed < state.currentCritMs ? '⚡ Critical zone!' :
+      elapsed < state.currentFastMs ? '🔥 Fast zone'      : '💤',
       W / 2, barY - 5
     );
   }

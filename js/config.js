@@ -22,13 +22,24 @@ const CONFIG = {
 
   // ── Speed Bonus ──────────────────────────────────────
   SPEED: {
-    CRITICAL_MS: 1500,   // < 1.5s = Critical Hit
-    FAST_MS: 3000,        // < 3s   = Fast Hit
-    TIMEOUT_MS: 5000,     // > 5s   = Miss
+    // ค่า fallback (ไม่ถูกใช้โดยตรงใน battle — ดู TIMER_TIERS)
+    CRITICAL_MS: 1500,
+    FAST_MS: 3000,
+    TIMEOUT_MS: 5000,
     MULTIPLIER_CRIT: 1.8,
     MULTIPLIER_FAST: 1.4,
     MULTIPLIER_NORMAL: 1.0,
   },
+
+  // ── Timer Tiers (Floor-based + Op-based scaling) ──────
+  // ตาม TD spec: ยิ่งชั้นสูง + operation ยากขึ้น = เวลาน้อยลง
+  // crit/fast เป็น % ของ timeout → scale ตามไปเองอัตโนมัติ
+  TIMER_TIERS: [
+    // { maxFloor, easy (+-), hard (×÷), critPct, fastPct }
+    { maxFloor: 20, easyMs: 8000, hardMs: 10000, critPct: 0.30, fastPct: 0.55 },
+    { maxFloor: 40, easyMs: 6000, hardMs:  8000, critPct: 0.25, fastPct: 0.50 },
+    { maxFloor: 60, easyMs: 5000, hardMs:  6000, critPct: 0.25, fastPct: 0.50 },
+  ],
 
   // ── Damage ───────────────────────────────────────────
   DAMAGE: {

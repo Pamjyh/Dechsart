@@ -10,7 +10,8 @@ var LeaderboardScene = (function () {
     rows: null,        // null = loading, [] = empty/loaded
     loadError: false,
     frame: 0,
-    _handlers: []
+    _handlers: [],
+    _unsubFn: null     // real-time unsubscribe handle
   };
 
   // ── Public API ─────────────────────────────────────────────────
@@ -40,21 +41,21 @@ var LeaderboardScene = (function () {
   function stop() {
     if (_state.animId) cancelAnimationFrame(_state.animId);
     _removeHandlers();
+    if (_state._unsubFn) { _state._unsubFn(); _state._unsubFn = null; }
   }
 
-  // ── Data ───────────────────────────────────────────────────────
+  // ── Data (real-time subscription) ─────────────────────────────
   function _fetchData() {
+    // ยกเลิก subscription เก่าก่อน
+    if (_state._unsubFn) { _state._unsubFn(); _state._unsubFn = null; }
     _state.rows      = null;
     _state.loadError = false;
-    var date        = SUPA.todayStr();
-    var code        = _state.mode === 'classroom' ? _state.save.classroomCode : null;
+    var date = SUPA.todayStr();
+    var code = _state.mode === 'classroom' ? _state.save.classroomCode : null;
     if (!SUPA.isReady()) {
-      // offline: แสดง placeholder
-      _state.rows = [];
-      _state.loadError = true;
-      return;
+      _state.rows = []; _state.loadError = true; return;
     }
-    SUPA.getLeaderboard(date, code, function (rows) {
+    _state._unsubFn = SUPA.subscribeLeaderboard(date, code, function (rows) {
       _state.rows = rows || [];
     });
   }
@@ -93,6 +94,12 @@ var LeaderboardScene = (function () {
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(SUPA.todayStr(), W / 2, 44);
+    // blinking dot — real-time indicator
+    if (_state.rows !== null && !_state.loadError && SUPA.isReady()) {
+      var dotAlpha = 0.4 + 0.6 * Math.abs(Math.sin(frame * 0.05));
+      ctx.fillStyle = 'rgba(0,255,100,' + dotAlpha + ')';
+      ctx.beginPath(); ctx.arc(W - 14, 28, 4, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.textAlign = 'left';
 
     // ── Mode toggle ─────────────────────────────────────────────

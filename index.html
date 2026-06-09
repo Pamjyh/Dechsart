@@ -125,7 +125,14 @@
         if (SUPA.isReady() && _bootSave.nickname) {
           SUPA.upsertUser(_bootSave, null);
         }
-        SCENE.switch('menu', _gameCanvas);
+        // ถ้ายังไม่มีชื่อ → ให้ตั้งชื่อก่อนเข้าเมนู
+        if (!_bootSave.nickname) {
+          ClassroomScene.start(_gameCanvas, _bootSave, function () {
+            SCENE.switch('menu', _gameCanvas);
+          }, true /* nicknameOnly */);
+        } else {
+          SCENE.switch('menu', _gameCanvas);
+        }
       },
       function(loaded, total) {
         drawLoading(loaded, total);

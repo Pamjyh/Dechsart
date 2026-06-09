@@ -99,11 +99,12 @@ var SUPA = (function () {
     }).catch(function (e) { console.warn('[FB] syncDailyScore:', e.message); });
   }
 
-  // ── Fetch leaderboard ─────────────────────────────────────────
-  // ⚠️ ครั้งแรกที่รัน Firestore จะ error + แสดง link สร้าง composite index
-  //    คลิก link นั้นใน browser console แล้วรอ ~1 นาที จะใช้ได้ทันที
-  function getLeaderboard(date, classroomCode, cb) {
-    if (!isReady()) { cb([]); return; }
+  // ── Subscribe leaderboard (real-time onSnapshot) ──────────────
+  // คืน unsubscribe function — เรียก unsub() เมื่อออกจาก scene
+  // ⚠️ ครั้งแรก Firestore อาจ error + แสดง link สร้าง composite index
+  //    คลิก link ใน console แล้วรอ ~1 นาที
+  function subscribeLeaderboard(date, classroomCode, cb) {
+    if (!isReady()) { cb([]); return function () {}; }
     var q;
     if (classroomCode) {
       q = _db.collection('daily_scores')
@@ -117,7 +118,7 @@ var SUPA = (function () {
         .orderBy('damageDealt', 'desc')
         .limit(30);
     }
-    q.get().then(function (snap) {
+    return q.onSnapshot(function (snap) {
       var rows = [];
       snap.forEach(function (doc) {
         var d = doc.data();
@@ -128,9 +129,18 @@ var SUPA = (function () {
         });
       });
       cb(rows);
-    }).catch(function (e) {
-      console.warn('[FB] getLeaderboard:', e.message);
+    }, function (e) {
+      console.warn('[FB] subscribeLeaderboard:', e.message);
       cb([]);
+    });
+  }
+
+  // ── One-time fetch (fallback / teacher dashboard) ─────────────
+  function getLeaderboard(date, classroomCode, cb) {
+    if (!isReady()) { cb([]); return; }
+    var unsub = subscribeLeaderboard(date, classroomCode, function (rows) {
+      unsub && unsub();
+      cb(rows);
     });
   }
 
@@ -242,6 +252,7 @@ var SUPA = (function () {
     weekStartStr:      weekStartStr,
     upsertUser:        upsertUser,
     syncDailyScore:    syncDailyScore,
+    subscribeLeaderboard: subscribeLeaderboard,
     getLeaderboard:    getLeaderboard,
     joinClassroom:     joinClassroom,
     createClassroom:   createClassroom,

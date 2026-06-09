@@ -6,7 +6,8 @@ var ClassroomScene = (function () {
   var _state = {
     canvas: null, ctx: null, animId: null, save: null,
     onDone: null,
-    step: 'nickname',   // 'nickname' | 'code' | 'result'
+    step: 'nickname',      // 'nickname' | 'code' | 'result'
+    nicknameOnly: false,   // true = ข้าม code step (เรียกจาก boot)
     resultOk: false, resultMsg: '',
     frame: 0,
     _handlers: [],
@@ -15,15 +16,17 @@ var ClassroomScene = (function () {
   };
 
   // ── Public API ─────────────────────────────────────────────────
-  function start(canvas, save, onDone) {
-    _state.canvas  = canvas;
-    _state.ctx     = canvas.getContext('2d');
-    _state.save    = save;
-    _state.onDone  = onDone;
-    _state.frame   = 0;
-    _state.step    = save.nickname ? 'code' : 'nickname';
-    _state.resultOk  = false;
-    _state.resultMsg = '';
+  // nicknameOnly=true → แสดงแค่ช่องตั้งชื่อ ไม่ถามรหัสห้อง (เรียกจาก boot)
+  function start(canvas, save, onDone, nicknameOnly) {
+    _state.canvas       = canvas;
+    _state.ctx          = canvas.getContext('2d');
+    _state.save         = save;
+    _state.onDone       = onDone;
+    _state.frame        = 0;
+    _state.nicknameOnly = !!nicknameOnly;
+    _state.step         = save.nickname && !nicknameOnly ? 'code' : 'nickname';
+    _state.resultOk     = false;
+    _state.resultMsg    = '';
 
     _removeHandlers();
     _buildOverlay();
@@ -168,9 +171,14 @@ var ClassroomScene = (function () {
       if (val.length < 1) { _setHint('กรุณากรอกชื่อ'); return; }
       _state.save.nickname = val.slice(0, 20);
       saveProgress(_state.save);
-      // sync user profile
       if (SUPA.isReady()) SUPA.upsertUser(_state.save, null);
-      // ไปต่อ step code
+      if (_state.nicknameOnly) {
+        // boot flow — แค่ตั้งชื่อ แล้วเดินหน้าต่อ
+        stop();
+        _state.onDone && _state.onDone();
+        return;
+      }
+      // ปกติ — ไปต่อ step code
       _state.step = 'code';
       _showInput('code');
 
