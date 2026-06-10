@@ -12,7 +12,12 @@ var LeaderboardScene = (function () {
     errorMsg: '',      // error message จาก Firebase
     frame: 0,
     _handlers: [],
-    _unsubFn: null     // real-time unsubscribe handle
+    _unsubFn: null,    // real-time unsubscribe handle
+    // scroll state
+    scrollOffset: 0,
+    _scrollStartY: null,
+    _scrollStartOffset: 0,
+    _isDragging: false
   };
 
   // ── Public API ─────────────────────────────────────────────────
@@ -21,10 +26,13 @@ var LeaderboardScene = (function () {
     _state.ctx       = canvas.getContext('2d');
     _state.save      = save;
     _state.onBack    = onBack;
-    _state.frame     = 0;
-    _state.rows      = null;
-    _state.loadError = false;
-    _state.mode      = save.classroomCode ? 'classroom' : 'global';
+    _state.frame        = 0;
+    _state.rows         = null;
+    _state.loadError    = false;
+    _state.mode         = save.classroomCode ? 'classroom' : 'global';
+    _state.scrollOffset = 0;
+    _state._isDragging  = false;
+    _state._scrollStartY = null;
 
     _removeHandlers();
     _attachHandlers();
@@ -178,10 +186,16 @@ var LeaderboardScene = (function () {
   }
 
   function _renderRows(ctx, W, listY, listH) {
-    var rows  = _state.rows;
-    var rowH  = 40;
-    var padX  = 10;
-    var BADGE = ['🥇', '🥈', '🥉'];
+    var rows   = _state.rows;
+    var rowH   = 40;
+    var padX   = 10;
+    var BADGE  = ['🥇', '🥈', '🥉'];
+    var totalH = rows.length * rowH;
+    var maxScroll = Math.max(0, totalH - listH);
+
+    // clamp scrollOffset
+    if (_state.scrollOffset < 0) _state.scrollOffset = 0;
+    if (_state.scrollOffset > maxScroll) _state.scrollOffset = maxScroll;
 
     ctx.save();
     ctx.beginPath();
@@ -190,8 +204,9 @@ var LeaderboardScene = (function () {
 
     for (var i = 0; i < rows.length; i++) {
       var r  = rows[i];
-      var ry = listY + i * rowH + 2;
-      if (ry > listY + listH) break;
+      var ry = listY + i * rowH + 2 - _state.scrollOffset;
+      if (ry + rowH < listY) continue;   // above viewport
+      if (ry > listY + listH) break;     // below viewport
 
       // row bg
       _lbRR(ctx, padX, ry, W - padX * 2, rowH - 4, 6);
@@ -214,7 +229,6 @@ var LeaderboardScene = (function () {
       ctx.textAlign = 'left';
       ctx.fillStyle = i < 3 ? '#FFD700' : '#DDD';
       ctx.font = (i < 3 ? 'bold ' : '') + '13px sans-serif';
-      // truncate ถ้ายาวเกิน
       var nick = r.nickname.length > 14 ? r.nickname.slice(0, 13) + '…' : r.nickname;
       ctx.fillText(nick, padX + 44, ry + rowH - 12);
 
@@ -224,24 +238,85 @@ var LeaderboardScene = (function () {
       ctx.fillText('⚔ ' + r.damage_dealt, W - padX - 4, ry + rowH - 12);
       ctx.textAlign = 'left';
     }
+
     ctx.restore();
+
+    // scrollbar (ถ้ามีเนื้อหาเกิน)
+    if (maxScroll > 0) {
+      var sbW   = 4;
+      var sbX   = W - sbW - 2;
+      var sbH   = Math.max(30, listH * listH / totalH);
+      var sbY   = listY + (_state.scrollOffset / maxScroll) * (listH - sbH);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.beginPath(); ctx.roundRect(sbX, listY, sbW, listH, 2); ctx.fill();
+      ctx.fillStyle = 'rgba(160,120,255,0.6)';
+      ctx.beginPath(); ctx.roundRect(sbX, sbY, sbW, sbH, 2); ctx.fill();
+    }
   }
 
   // ── Event Handlers ─────────────────────────────────────────────
+  function _listBounds() {
+    // คืน { listY, listH } เหมือนที่ _render คำนวณ
+    var H = _state.canvas.height;
+    var tY = 58, tH = 32;
+    var listY = tY + tH + 8;
+    var listH = H - listY - 56;
+    return { listY: listY, listH: listH };
+  }
+
   function _attachHandlers() {
     var canvas = _state.canvas;
     function addH(type, fn, opts) {
       canvas.addEventListener(type, fn, opts || false);
       _state._handlers.push({ type: type, fn: fn });
     }
+
+    // Touch — แยก drag (scroll) กับ tap
+    addH('touchstart', function (e) {
+      var pt = getCanvasPoint(e.touches[0].clientX, e.touches[0].clientY, canvas);
+      var b  = _listBounds();
+      if (pt.y >= b.listY && pt.y <= b.listY + b.listH) {
+        _state._scrollStartY      = e.touches[0].clientY;
+        _state._scrollStartOffset = _state.scrollOffset;
+        _state._isDragging        = false;
+      } else {
+        _state._scrollStartY = null;
+      }
+    }, { passive: true });
+
+    addH('touchmove', function (e) {
+      if (_state._scrollStartY === null) return;
+      var dy = _state._scrollStartY - e.touches[0].clientY;
+      // scale: clientY → canvas units (approximation ด้วย devicePixelRatio-aware)
+      var rect  = canvas.getBoundingClientRect();
+      var scale = canvas.height / rect.height;
+      _state.scrollOffset = _state._scrollStartOffset + dy * scale;
+      if (Math.abs(dy) > 5) _state._isDragging = true;
+      e.preventDefault();
+    }, { passive: false });
+
+    addH('touchend', function (e) {
+      e.preventDefault();
+      _state._touchHandled = true;
+      if (!_state._isDragging) {
+        _handleTap(getCanvasPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY, canvas));
+      }
+      _state._scrollStartY = null;
+      _state._isDragging   = false;
+    }, { passive: false });
+
+    // Click (desktop)
     addH('click', function (e) {
       if (_state._touchHandled) { _state._touchHandled = false; return; }
       _handleTap(getCanvasPoint(e.clientX, e.clientY, canvas));
     });
-    addH('touchend', function (e) {
+
+    // Mouse wheel (desktop testing)
+    addH('wheel', function (e) {
+      var rect  = canvas.getBoundingClientRect();
+      var scale = canvas.height / rect.height;
+      _state.scrollOffset += e.deltaY * scale;
       e.preventDefault();
-      _state._touchHandled = true;
-      _handleTap(getCanvasPoint(e.changedTouches[0].clientX, e.changedTouches[0].clientY, canvas));
     }, { passive: false });
   }
 
