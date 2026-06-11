@@ -59,9 +59,12 @@ function loadProgress() {
 function saveProgress(data) {
   try {
     localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-    // Phase 5: fire-and-forget sync ไป Supabase (ถ้า ready)
+    // Phase 5: sync ไป Firebase — เฉพาะเมื่อมีคะแนนจริง
+    // ห้าม sync ตอน boot (correctAnswers = 0) ไม่งั้นจะทับคะแนนเก่าใน Firestore
     if (typeof SUPA !== 'undefined' && SUPA.isReady()) {
-      SUPA.syncDailyScore(data);
+      var hasScore = (data.daily  && (data.daily.correctAnswers  || 0) > 0)
+                  || (data.weekly && (data.weekly.correctAnswers || 0) > 0);
+      if (hasScore) SUPA.syncDailyScore(data);
     }
   } catch (e) {
     console.warn('Failed to save:', e);
