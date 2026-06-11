@@ -118,30 +118,47 @@ var SUPA = (function () {
   }
 
   // ── Subscribe leaderboard (real-time onSnapshot) ──────────────
-  // query จาก weekly_scores ด้วย weekStart (จ-ศ สะสมทั้งสัปดาห์)
+  // query จาก daily_scores สะสม จ–ศ ของสัปดาห์นี้
+  // รองรับข้อมูลเก่าก่อน weekly_scores โดยไม่ต้อง migrate
   // cb(rows, errorMsg) — errorMsg = null ถ้าสำเร็จ
   function subscribeLeaderboard(weekStart, classroomCode, cb) {
     if (!isReady()) { cb([], 'Firebase ยังไม่พร้อม — ตรวจสอบ config.js'); return function () {}; }
-    var q;
-    if (classroomCode) {
-      q = _db.collection('weekly_scores')
-        .where('weekStart', '==', weekStart)
-        .where('classroomCode', '==', classroomCode);
-    } else {
-      q = _db.collection('weekly_scores')
-        .where('weekStart', '==', weekStart);
+
+    // สร้าง array วันจันทร์–วันนี้ (สูงสุด 5 วัน)
+    var dates = [];
+    var mon   = new Date(weekStart + 'T00:00:00');
+    var now   = new Date(todayStr()  + 'T00:00:00');
+    var fri   = new Date(mon); fri.setDate(fri.getDate() + 4);
+    var end   = now < fri ? now : fri;
+    for (var d = new Date(mon); d <= end; d.setDate(d.getDate() + 1)) {
+      dates.push(d.getFullYear() + '-' + _p2(d.getMonth()+1) + '-' + _p2(d.getDate()));
     }
+    if (dates.length === 0) { cb([], null); return function () {}; }
+
+    var q = _db.collection('daily_scores').where('date', 'in', dates);
+    if (classroomCode) q = q.where('classroomCode', '==', classroomCode);
+
     return q.onSnapshot(function (snap) {
-      var rows = [];
+      // รวมคะแนนแต่ละ user ข้ามวัน
+      var byUser = {};
       snap.forEach(function (doc) {
         var d = doc.data();
-        rows.push({
-          nickname:        d.nickname        || 'นักรบนิรนาม',
-          damage_dealt:    d.damageDealt     || 0,
-          correct_answers: d.correctAnswers  || 0
-        });
+        var uid = d.userId || doc.id;
+        if (!byUser[uid]) {
+          byUser[uid] = { nickname: d.nickname || 'นักรบนิรนาม', correct: 0 };
+        }
+        byUser[uid].correct += (d.correctAnswers || 0);
+        if (d.nickname) byUser[uid].nickname = d.nickname; // nickname ล่าสุดชนะ
       });
-      rows.sort(function(a, b) { return b.damage_dealt - a.damage_dealt; });
+      var rows = Object.keys(byUser).map(function (uid) {
+        var u = byUser[uid];
+        return {
+          nickname:        u.nickname,
+          damage_dealt:    u.correct * 25,
+          correct_answers: u.correct
+        };
+      });
+      rows.sort(function (a, b) { return b.damage_dealt - a.damage_dealt; });
       cb(rows.slice(0, 30), null);
     }, function (e) {
       console.warn('[FB] subscribeLeaderboard:', e.message);
