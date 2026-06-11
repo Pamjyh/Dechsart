@@ -88,7 +88,10 @@ function checkLoginStreak(save) {
 
   // reset weekly leaderboard accumulator ถ้าสัปดาห์ใหม่
   if (!save.weekly || save.weekly.weekStart !== thisMonday) {
-    save.weekly = { weekStart: thisMonday, correctAnswers: 0 };
+    // seed ด้วยคะแนนวันนี้ถ้ามี (รองรับ player ที่เล่นก่อน update นี้)
+    var todayCorrect = (save.daily && save.daily.date === today)
+                       ? (save.daily.correctAnswers || 0) : 0;
+    save.weekly = { weekStart: thisMonday, correctAnswers: todayCorrect };
   }
 
   return save;
