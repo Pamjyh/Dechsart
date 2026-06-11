@@ -86,6 +86,11 @@ function checkLoginStreak(save) {
     };
   }
 
+  // reset weekly leaderboard accumulator ถ้าสัปดาห์ใหม่
+  if (!save.weekly || save.weekly.weekStart !== thisMonday) {
+    save.weekly = { weekStart: thisMonday, correctAnswers: 0 };
+  }
+
   return save;
 }
 
@@ -95,6 +100,11 @@ function checkLoginStreak(save) {
 function onCorrectAnswer(save) {
   if (save.daily.date === todayStr()) {
     save.daily.correctAnswers += 1;
+  }
+  // นับสะสมรายสัปดาห์ด้วย
+  var thisMonday = mondayOfWeek(todayStr());
+  if (save.weekly && save.weekly.weekStart === thisMonday) {
+    save.weekly.correctAnswers = (save.weekly.correctAnswers || 0) + 1;
   }
   return save;
 }

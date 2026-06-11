@@ -60,7 +60,7 @@ var LeaderboardScene = (function () {
     _state.rows      = null;
     _state.loadError = false;
     _state.errorMsg  = '';
-    var date = SUPA.todayStr();
+    var date = SUPA.weekStartStr();   // อันดับสะสมทั้งสัปดาห์ (จ-ศ)
     var code = _state.mode === 'classroom' ? _state.save.classroomCode : null;
     if (!SUPA.isReady()) {
       _state.rows = []; _state.loadError = true;
@@ -103,10 +103,10 @@ var LeaderboardScene = (function () {
 
     // title
     ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
-    drawIconLabel(ctx, '🏆', 'อันดับวันนี้', W / 2, 26, 22);
+    drawIconLabel(ctx, '🏆', 'อันดับสัปดาห์นี้', W / 2, 26, 22);
     ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(SUPA.todayStr(), W / 2, 44);
+    ctx.fillText(SUPA.weekRangeStr(), W / 2, 44);
     // blinking dot — real-time indicator
     if (_state.rows !== null && !_state.loadError && SUPA.isReady()) {
       var dotAlpha = 0.4 + 0.6 * Math.abs(Math.sin(frame * 0.05));

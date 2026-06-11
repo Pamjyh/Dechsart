@@ -78,21 +78,39 @@ var SUPA = (function () {
       .catch(function (e) { console.warn('[FB] upsertUser:', e.message); cb && cb(null); });
   }
 
-  // ── Sync daily score (fire-and-forget) ────────────────────────
-  // nickname denormalized → leaderboard query ไม่ต้อง JOIN
+  // ── Sync scores (fire-and-forget) ─────────────────────────────
+  // เขียน 2 collections คู่กัน:
+  //   daily_scores  — ใช้โดย teacher dashboard (รายวัน)
+  //   weekly_scores — ใช้โดย leaderboard (สะสม จ-ศ รีเซ็ตเสาร์)
   function syncDailyScore(save) {
     if (!isReady()) return;
     var today = todayStr();
-    var dmg   = (save.daily.correctAnswers || 0) * 25;
+    var wk    = weekStartStr();
+
     _getUid().then(function (uid) {
-      return _db.collection('daily_scores').doc(uid + '_' + today).set({
+      // 1) daily_scores — เหมือนเดิม (ใช้โดย teacher dashboard)
+      var dailyDmg = (save.daily.correctAnswers || 0) * 25;
+      _db.collection('daily_scores').doc(uid + '_' + today).set({
         userId:         uid,
         date:           today,
         nickname:       save.nickname              || 'นักรบนิรนาม',
-        damageDealt:    dmg,
+        damageDealt:    dailyDmg,
         correctAnswers: save.daily.correctAnswers  || 0,
         wrongAnswers:   save.daily.wrongAnswers    || 0,
         opErrors:       save.opErrors              || {},
+        floorReached:   save.maxFloor              || 1,
+        classroomCode:  save.classroomCode         || null
+      }, { merge: true }).catch(function (e) { console.warn('[FB] daily_scores:', e.message); });
+
+      // 2) weekly_scores — สะสมตลอดสัปดาห์ (จ-ศ)
+      var weeklyCorrect = (save.weekly && save.weekly.correctAnswers) || 0;
+      var weeklyDmg     = weeklyCorrect * 25;
+      return _db.collection('weekly_scores').doc(uid + '_' + wk).set({
+        userId:         uid,
+        weekStart:      wk,
+        nickname:       save.nickname              || 'นักรบนิรนาม',
+        damageDealt:    weeklyDmg,
+        correctAnswers: weeklyCorrect,
         floorReached:   save.maxFloor              || 1,
         classroomCode:  save.classroomCode         || null
       }, { merge: true });
@@ -100,19 +118,18 @@ var SUPA = (function () {
   }
 
   // ── Subscribe leaderboard (real-time onSnapshot) ──────────────
-  // ไม่ใช้ orderBy → ไม่ต้องสร้าง composite index
-  // sort ใน JS แทน (30 records ต่อวัน — เร็วพอ)
+  // query จาก weekly_scores ด้วย weekStart (จ-ศ สะสมทั้งสัปดาห์)
   // cb(rows, errorMsg) — errorMsg = null ถ้าสำเร็จ
-  function subscribeLeaderboard(date, classroomCode, cb) {
+  function subscribeLeaderboard(weekStart, classroomCode, cb) {
     if (!isReady()) { cb([], 'Firebase ยังไม่พร้อม — ตรวจสอบ config.js'); return function () {}; }
     var q;
     if (classroomCode) {
-      q = _db.collection('daily_scores')
-        .where('date', '==', date)
+      q = _db.collection('weekly_scores')
+        .where('weekStart', '==', weekStart)
         .where('classroomCode', '==', classroomCode);
     } else {
-      q = _db.collection('daily_scores')
-        .where('date', '==', date);
+      q = _db.collection('weekly_scores')
+        .where('weekStart', '==', weekStart);
     }
     return q.onSnapshot(function (snap) {
       var rows = [];
@@ -124,7 +141,6 @@ var SUPA = (function () {
           correct_answers: d.correctAnswers  || 0
         });
       });
-      // sort by damage desc, take top 30
       rows.sort(function(a, b) { return b.damage_dealt - a.damage_dealt; });
       cb(rows.slice(0, 30), null);
     }, function (e) {
@@ -134,9 +150,9 @@ var SUPA = (function () {
   }
 
   // ── One-time fetch (fallback / teacher dashboard) ─────────────
-  function getLeaderboard(date, classroomCode, cb) {
+  function getLeaderboard(weekStart, classroomCode, cb) {
     if (!isReady()) { cb([]); return; }
-    var unsub = subscribeLeaderboard(date, classroomCode, function (rows) {
+    var unsub = subscribeLeaderboard(weekStart, classroomCode, function (rows) {
       unsub && unsub();
       cb(rows);
     });
@@ -235,6 +251,20 @@ var SUPA = (function () {
     d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
     return d.getFullYear() + '-' + _p2(d.getMonth()+1) + '-' + _p2(d.getDate());
   }
+  // คืน string "D เดือน – D เดือน พ.ศ." เช่น "9 – 13 มิ.ย. 69"
+  function weekRangeStr() {
+    var TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
+                'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    var mon = new Date(weekStartStr());
+    var fri = new Date(mon); fri.setDate(fri.getDate() + 4);
+    var monPart = mon.getDate() + ' ' + TH_M[mon.getMonth()];
+    var friPart = fri.getDate() + ' ' + TH_M[fri.getMonth()];
+    var thYear  = (fri.getFullYear() + 543).toString().slice(-2);
+    if (mon.getMonth() === fri.getMonth()) {
+      return mon.getDate() + '–' + fri.getDate() + ' ' + TH_M[fri.getMonth()] + ' ' + thYear;
+    }
+    return monPart + ' – ' + friPart + ' ' + thYear;
+  }
   function _p2(n) { return n < 10 ? '0'+n : ''+n; }
   function _genCode() {
     var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -248,6 +278,7 @@ var SUPA = (function () {
     isReady:           isReady,
     todayStr:          todayStr,
     weekStartStr:      weekStartStr,
+    weekRangeStr:      weekRangeStr,
     upsertUser:        upsertUser,
     syncDailyScore:    syncDailyScore,
     subscribeLeaderboard: subscribeLeaderboard,

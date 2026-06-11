@@ -36,6 +36,11 @@ var DEFAULT_SAVE = {
   // Phase 5 — Cloud / Social
   nickname: '',             // ชื่อเล่น (สูงสุด 20 ตัว) แสดงใน leaderboard
   classroomCode: '',        // รหัสห้อง 6 ตัว (ว่าง = ไม่ได้เข้าห้อง)
+  // Phase 5.1 — Weekly leaderboard (จ-ศ รีเซ็ตทุกเสาร์)
+  weekly: {
+    weekStart:      '',     // 'YYYY-MM-DD' วันจันทร์ของสัปดาห์นี้
+    correctAnswers: 0,      // ตอบถูกสะสมตลอดสัปดาห์ (จ-ศ)
+  },
 };
 
 function loadProgress() {
