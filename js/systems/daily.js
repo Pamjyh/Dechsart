@@ -11,12 +11,11 @@ function todayStr() {
   return yyyy + '-' + mm + '-' + dd;
 }
 
-function mondayOfWeek(dateStr) {
-  // คืน 'YYYY-MM-DD' ของวันจันทร์ของสัปดาห์ที่ dateStr อยู่
+function weekStartOf(dateStr) {
+  // คืน 'YYYY-MM-DD' ของวันอาทิตย์ต้นสัปดาห์ (สัปดาห์รัน อา–ส รีเซ็ตทุกอาทิตย์)
   var d = new Date(dateStr);
-  var day = d.getDay(); // 0=Sun,1=Mon,...
-  var diff = (day === 0) ? -6 : 1 - day;
-  d.setDate(d.getDate() + diff);
+  var day = d.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+  d.setDate(d.getDate() - day); // ถอยกลับไปหา Sunday
   var yyyy = d.getFullYear();
   var mm = String(d.getMonth() + 1).padStart(2, '0');
   var dd = String(d.getDate()).padStart(2, '0');
@@ -76,10 +75,10 @@ function checkLoginStreak(save) {
   save.lastLoginDate = today;
 
   // reset weekly boss ถ้าสัปดาห์ใหม่
-  var thisMonday = mondayOfWeek(today);
-  if (save.weeklyBoss.weekStart !== thisMonday) {
+  var thisWeekStart = weekStartOf(today);
+  if (save.weeklyBoss.weekStart !== thisWeekStart) {
     save.weeklyBoss = {
-      weekStart: thisMonday,
+      weekStart: thisWeekStart,
       totalDamage: 0,
       defeated: false,
       rewardClaimed: false,
@@ -87,11 +86,11 @@ function checkLoginStreak(save) {
   }
 
   // reset weekly leaderboard accumulator ถ้าสัปดาห์ใหม่
-  if (!save.weekly || save.weekly.weekStart !== thisMonday) {
+  if (!save.weekly || save.weekly.weekStart !== thisWeekStart) {
     // seed ด้วยคะแนนวันนี้ถ้ามี (รองรับ player ที่เล่นก่อน update นี้)
     var todayCorrect = (save.daily && save.daily.date === today)
                        ? (save.daily.correctAnswers || 0) : 0;
-    save.weekly = { weekStart: thisMonday, correctAnswers: todayCorrect };
+    save.weekly = { weekStart: thisWeekStart, correctAnswers: todayCorrect };
   }
 
   return save;
@@ -105,7 +104,7 @@ function onCorrectAnswer(save) {
     save.daily.correctAnswers += 1;
   }
   // นับสะสมรายสัปดาห์ด้วย
-  var thisMonday = mondayOfWeek(todayStr());
+  var thisMonday = weekStartOf(todayStr());
   if (save.weekly && save.weekly.weekStart === thisMonday) {
     save.weekly.correctAnswers = (save.weekly.correctAnswers || 0) + 1;
   }
@@ -126,7 +125,7 @@ function onBossDefeated(save, damageDealt) {
     save.daily.bossDefeated = Math.min(save.daily.bossDefeated + 1, 1);
   }
   // weekly boss damage
-  if (save.weeklyBoss.weekStart === mondayOfWeek(todayStr())) {
+  if (save.weeklyBoss.weekStart === weekStartOf(todayStr())) {
     save.weeklyBoss.totalDamage += (damageDealt || 100);
     if (save.weeklyBoss.totalDamage >= WEEKLY_BOSS_HP && !save.weeklyBoss.defeated) {
       save.weeklyBoss.defeated = true;

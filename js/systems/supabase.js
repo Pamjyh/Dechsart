@@ -191,9 +191,10 @@ var SUPA = (function () {
     return d.getFullYear() + '-' + _p2(d.getMonth()+1) + '-' + _p2(d.getDate());
   }
   function weekStartStr() {
+    // คืน Sunday ต้นสัปดาห์ (สัปดาห์รัน อา–ส รีเซ็ตทุกอาทิตย์)
     var d   = new Date();
-    var day = d.getDay();
-    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    var day = d.getDay(); // 0=Sun,...,6=Sat
+    d.setDate(d.getDate() - day); // ถอยกลับหา Sunday
     return d.getFullYear() + '-' + _p2(d.getMonth()+1) + '-' + _p2(d.getDate());
   }
   function _p2(n) { return n < 10 ? '0'+n : ''+n; }

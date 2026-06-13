@@ -263,24 +263,25 @@ var SUPA = (function () {
     return d.getFullYear() + '-' + _p2(d.getMonth()+1) + '-' + _p2(d.getDate());
   }
   function weekStartStr() {
+    // คืน Sunday ต้นสัปดาห์ (สัปดาห์รัน อา–ส รีเซ็ตทุกอาทิตย์)
     var d   = new Date();
-    var day = d.getDay();
-    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    var day = d.getDay(); // 0=Sun,...,6=Sat
+    d.setDate(d.getDate() - day); // ถอยกลับหา Sunday
     return d.getFullYear() + '-' + _p2(d.getMonth()+1) + '-' + _p2(d.getDate());
   }
-  // คืน string "D เดือน – D เดือน พ.ศ." เช่น "9 – 13 มิ.ย. 69"
+  // คืน string "D เดือน – D เดือน พ.ศ." เช่น "15–21 มิ.ย. 69"
   function weekRangeStr() {
     var TH_M = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.',
                 'ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-    var mon = new Date(weekStartStr());
-    var fri = new Date(mon); fri.setDate(fri.getDate() + 4);
-    var monPart = mon.getDate() + ' ' + TH_M[mon.getMonth()];
-    var friPart = fri.getDate() + ' ' + TH_M[fri.getMonth()];
-    var thYear  = (fri.getFullYear() + 543).toString().slice(-2);
-    if (mon.getMonth() === fri.getMonth()) {
-      return mon.getDate() + '–' + fri.getDate() + ' ' + TH_M[fri.getMonth()] + ' ' + thYear;
+    var sun = new Date(weekStartStr());
+    var sat = new Date(sun); sat.setDate(sat.getDate() + 6);
+    var sunPart = sun.getDate() + ' ' + TH_M[sun.getMonth()];
+    var satPart = sat.getDate() + ' ' + TH_M[sat.getMonth()];
+    var thYear  = (sat.getFullYear() + 543).toString().slice(-2);
+    if (sun.getMonth() === sat.getMonth()) {
+      return sun.getDate() + '–' + sat.getDate() + ' ' + TH_M[sat.getMonth()] + ' ' + thYear;
     }
-    return monPart + ' – ' + friPart + ' ' + thYear;
+    return sunPart + ' – ' + satPart + ' ' + thYear;
   }
   function _p2(n) { return n < 10 ? '0'+n : ''+n; }
   function _genCode() {
