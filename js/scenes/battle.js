@@ -44,6 +44,14 @@ var state = {
   shiftBannerTimer:  0,   // frame countdown แสดง banner "ธาตุสลับ!"
   currentWeak:       null, // element id ที่ weak ในรอบนี้ (endless เท่านั้น)
   currentResist:     null, // element id ที่ resist ในรอบนี้
+  // Chain Question
+  mustRetry: false,        // true = ต้องตอบโจทย์เดิมซ้ำ (ตอบผิด/timeout)
+  retryQ:    null,         // { question, answer, choices, op, difficulty }
+  // Boss Intro Animation
+  introTimer: 0,           // countdown frames สำหรับ intro (90 = 1.5s)
+  // Hint System
+  hintUsed: false,         // ใช้ hint ในโจทย์นี้แล้วหรือยัง
+  hintElim: null,          // ค่าตัวเลือกผิดที่ถูก eliminate โดย hint
 };
 
 var canvas, ctx;
@@ -117,7 +125,7 @@ function initBattle(canvasEl, floor, saveData, endless, endlessFloor) {
   }
 
   state.heroHP   = state.heroMaxHP = CONFIG.HP.HERO_BASE + (state.hero.hpBonus || 0);
-  state.phase    = 'idle';
+  state.phase    = 'intro'; // intro → แสดง boss showcase ก่อนข้อแรก
   state.particles  = [];
   state.damageNumbers = [];
   state.frame    = 0;
@@ -133,6 +141,11 @@ function initBattle(canvasEl, floor, saveData, endless, endlessFloor) {
   state.battleRound = 0;
   state.rage = false;
   state.rageFlashTimer = 0;
+  state.mustRetry  = false;
+  state.retryQ     = null;
+  state.introTimer = CONFIG.GAME.INTRO_FRAMES;
+  state.hintUsed   = false;
+  state.hintElim   = null;
   // รีเซ็ต end-screen flag เสมอ เพื่อป้องกัน handler ค้างจาก session ก่อน
   canvas._endHandled = false;
   canvas._endTouched = false;
@@ -145,7 +158,8 @@ function initBattle(canvasEl, floor, saveData, endless, endlessFloor) {
 
   if (animId) cancelAnimationFrame(animId);
   loop();
-  setTimeout(() => { playStart(); startQuestion(); }, 600);
+  // playStart ตอนต้น intro — startQuestion จัดการโดย update() ผ่าน introTimer
+  setTimeout(function() { playStart(); }, 300);
 }
 
 function resizeCanvas() {
@@ -169,6 +183,13 @@ function loop() {
 }
 
 function update() {
+  // Boss Intro countdown
+  if (state.phase === 'intro') {
+    state.introTimer--;
+    if (state.introTimer <= 0) startQuestion();
+    return; // ยังไม่เริ่ม game loop จริง
+  }
+
   // timer
   if (state.phase === 'question') {
     const elapsed = performance.now() - state.questionStart;
@@ -221,9 +242,19 @@ function startQuestion() {
     spawnParticles(canvas.width * 0.5, canvas.height * 0.20, 18, '#FF2222', 'circle');
   }
 
-  // สลับ op ตาม boss weak/resist เพื่อบังคับ variety
-  state.currentOp = pickOp();
-  state.question  = generateQuestion(state.currentOp, state.floor, state.battleRound, state.opErrors);
+  // Chain Question: ถ้าตอบผิดครั้งก่อน ใช้โจทย์เดิมซ้ำ
+  if (state.mustRetry && state.retryQ) {
+    state.currentOp = state.retryQ.op;
+    state.question  = state.retryQ;
+    // hint ยังคงใช้ได้กับโจทย์เดิม (ไม่ reset)
+  } else {
+    // สลับ op ตาม boss weak/resist เพื่อบังคับ variety
+    state.currentOp = pickOp();
+    state.question  = generateQuestion(state.currentOp, state.floor, state.battleRound, state.opErrors);
+    // โจทย์ใหม่ → reset hint
+    state.hintUsed = false;
+    state.hintElim = null;
+  }
   state.questionStart = performance.now();
   // snapshot timer values ณ ตอนนี้ — ไม่ re-calc ระหว่างโจทย์ (QA req)
   var t = _getTimerMs(state.floor, state.currentOp);
@@ -283,6 +314,12 @@ function handleTap(clientX, clientY) {
   var x = (clientX - rect.left) * scaleX;
   var y = (clientY - rect.top)  * scaleY;
 
+  // Boss Intro: tap ใดๆ ก็ข้ามได้
+  if (state.phase === 'intro') {
+    startQuestion();
+    return;
+  }
+
   // ปุ่มกลับหอ (top-left) — ทำงานทุก phase ยกเว้น end screen
   if (state.phase !== 'victory' && state.phase !== 'defeat') {
     if (x >= 6 && x <= 58 && y >= 6 && y <= 34) {
@@ -297,6 +334,14 @@ function handleTap(clientX, clientY) {
   }
 
   if (state.phase !== 'question') return;
+
+  // Hint button (right of answer buttons, aligned with btn 0)
+  var W = CONFIG.CANVAS.BASE_WIDTH, H = CONFIG.CANVAS.BASE_HEIGHT;
+  var hBtnX = W - 42, hBtnY = H * 0.50, hBtnW = 38, hBtnH = 44;
+  if (!state.hintUsed && x >= hBtnX && x <= hBtnX + hBtnW && y >= hBtnY && y <= hBtnY + hBtnH) {
+    onHintTapped();
+    return;
+  }
 
   var btnRegions = getAnswerRegions();
   for (var i = 0; i < btnRegions.length; i++) {
@@ -332,6 +377,8 @@ function getComboMultiplier(combos, elem) {
 }
 
 function onAnswerSelected(chosen) {
+  // Hint: ตัวเลือกที่ถูก eliminate → ไม่ตอบสนอง
+  if (state.hintElim !== null && chosen === state.hintElim) return;
   state.lastChosen = chosen;
   const elapsed = performance.now() - state.questionStart;
   const correct = chosen === state.question.answer;
@@ -369,6 +416,9 @@ function onAnswerSelected(chosen) {
     state.score  += dmg;
     state.combo++;
     state.battleRound++;
+    // Chain: ตอบถูกแล้ว → เคลียร์ retry
+    state.mustRetry = false;
+    state.retryQ    = null;
 
     // Endless: นับตอบถูก → ทุก 3 ข้อสลับ weak/resist
     if (state.endless) {
@@ -417,6 +467,9 @@ function onAnswerSelected(chosen) {
 
   } else {
     state.combo = 0;
+    // Chain: ตอบผิด → บังคับโจทย์เดิมรอบถัดไป
+    state.mustRetry = true;
+    state.retryQ    = state.question;
     // Adaptive: บันทึก error ของ op นี้
     if (state.opErrors && state.currentOp) {
       state.opErrors[state.currentOp] = (state.opErrors[state.currentOp] || 0) + 1;
@@ -449,6 +502,9 @@ function onAnswerSelected(chosen) {
 
 function onTimeout() {
   state.combo = 0;
+  // Chain: หมดเวลา → บังคับโจทย์เดิมรอบถัดไป
+  state.mustRetry = true;
+  state.retryQ    = state.question;
   var dmg = state.rage
     ? Math.round(CONFIG.DAMAGE.BOSS_BASE * CONFIG.DAMAGE.RAGE_DMG_MULT)
     : CONFIG.DAMAGE.BOSS_BASE;
@@ -561,6 +617,12 @@ function render() {
   // Stars
   drawStars(W, H);
 
+  // ── Boss Intro — แสดงแล้ว return ก่อนวาด UI ─────────────────────
+  if (state.phase === 'intro') {
+    drawIntro(W, H);
+    return;
+  }
+
   // ปุ่มกลับ (top-left) — แสดงเฉพาะตอนอยู่ในเกม ไม่ใช่ end screen
   if (state.phase !== 'victory' && state.phase !== 'defeat') {
     ctx.fillStyle = 'rgba(40,20,80,0.75)';
@@ -643,6 +705,39 @@ function render() {
       elapsed < state.currentFastMs ? '🔥 Fast zone'      : '💤',
       W / 2, barY - 5
     );
+  }
+
+  // Chain Question indicator — แสดงเมื่อต้องตอบโจทย์เดิมซ้ำ
+  if (state.mustRetry && state.phase === 'question') {
+    ctx.font = 'bold 13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FF9900';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+    ctx.strokeText('🔄 ตอบใหม่!', W / 2, H * 0.42);
+    ctx.fillText('🔄 ตอบใหม่!', W / 2, H * 0.42);
+    ctx.lineWidth = 1;
+  }
+
+  // Hint button — right of first answer button, phase question เท่านั้น
+  if (state.phase === 'question') {
+    var hBtnX = W - 42, hBtnY = H * 0.50;
+    var crystals = (state.saveData && state.saveData.crystals) || 0;
+    var canHint = !state.hintUsed && crystals >= CONFIG.GAME.HINT_CRYSTAL_COST;
+    // background
+    ctx.fillStyle = canHint ? 'rgba(255,210,0,0.92)' : 'rgba(60,60,60,0.7)';
+    roundRect(ctx, hBtnX, hBtnY, 38, 44, 8); ctx.fill();
+    ctx.strokeStyle = canHint ? '#FFD700' : '#555'; ctx.lineWidth = 1.5;
+    roundRect(ctx, hBtnX, hBtnY, 38, 44, 8); ctx.stroke(); ctx.lineWidth = 1;
+    // icon
+    ctx.font = '19px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.globalAlpha = canHint ? 1 : 0.4;
+    ctx.fillText('💡', hBtnX + 19, hBtnY + 22);
+    // crystal cost label
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillStyle = canHint ? '#333' : '#888';
+    ctx.fillText('💎' + CONFIG.GAME.HINT_CRYSTAL_COST, hBtnX + 19, hBtnY + 38);
+    ctx.globalAlpha = 1;
   }
 
   // Question box — y=H*0.44
@@ -789,6 +884,83 @@ function render() {
   if (state.phase === 'defeat')   drawEndScreen(W, H, false);
 }
 
+// ── Boss Intro Animation ──────────────────────────────────────────
+function drawIntro(W, H) {
+  // fade in/out ตาม introTimer (90→0)
+  var alpha;
+  if (state.introTimer > 75)      alpha = (CONFIG.GAME.INTRO_FRAMES - state.introTimer) / 15;
+  else if (state.introTimer > 15) alpha = 1;
+  else                             alpha = state.introTimer / 15;
+
+  // overlay มืดลงเล็กน้อย
+  ctx.fillStyle = 'rgba(0,0,0,0.45)';
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.globalAlpha = alpha;
+
+  // Boss sprite — ใหญ่กว่าปกติ (110 vs 80) + bounce เล็กน้อย
+  var bounce = Math.sin(state.frame * 0.12) * 5;
+  if (state.boss && state.boss.draw) {
+    state.boss.draw(ctx, W * 0.5, H * 0.30 + bounce, 110, state.frame);
+  }
+
+  // Boss name — พร้อม outline สี
+  ctx.font = 'bold 30px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+  ctx.strokeText(state.boss.name || 'Boss', W / 2, H * 0.55);
+  ctx.fillStyle = '#FFD700';
+  ctx.fillText(state.boss.name || 'Boss', W / 2, H * 0.55);
+  ctx.lineWidth = 1;
+
+  // Element badge
+  var bossElem = Object.values(CONFIG.ELEMENTS).find(function(e) {
+    return e.id === state.boss.element;
+  });
+  if (bossElem) {
+    ctx.font = 'bold 17px sans-serif';
+    ctx.fillStyle = bossElem.color;
+    ctx.fillText(bossElem.label, W / 2, H * 0.62);
+  }
+
+  // Floor / Endless label
+  ctx.font = '14px sans-serif';
+  ctx.fillStyle = 'rgba(255,255,255,0.65)';
+  var introFloor = state.endless
+    ? ('⚔ อนันต์ ' + (state.endlessFloor + 1))
+    : ('ชั้น ' + state.floor);
+  ctx.fillText(introFloor, W / 2, H * 0.68);
+
+  // "tap เพื่อเริ่ม" prompt — กระพริบ
+  if (state.introTimer < 60) {
+    var blink = Math.sin(state.frame * 0.18) * 0.5 + 0.5;
+    ctx.globalAlpha = alpha * blink;
+    ctx.font = '13px sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.fillText('แตะเพื่อเริ่ม', W / 2, H * 0.76);
+  }
+
+  ctx.globalAlpha = 1;
+}
+
+// ── Hint System ───────────────────────────────────────────────────
+function onHintTapped() {
+  if (!state.question || state.hintUsed) return;
+  var cost = CONFIG.GAME.HINT_CRYSTAL_COST;
+  if ((state.saveData.crystals || 0) < cost) return; // ไม่มี crystal พอ
+
+  state.saveData.crystals -= cost;
+  state.hintUsed = true;
+
+  // เลือก wrong answer แบบสุ่มมา 1 ตัว
+  var wrongs = state.question.choices.filter(function(c) {
+    return c !== state.question.answer;
+  });
+  state.hintElim = wrongs[Math.floor(Math.random() * wrongs.length)];
+
+  saveProgress(state.saveData);
+}
+
 // ── Draw helpers ─────────────────────────────────────────────────
 function drawStars(W, H) {
   // deterministic stars ตาม seed
@@ -883,6 +1055,7 @@ function drawAnswerButtons(W, H) {
   const regions = getAnswerRegions();
   regions.forEach((r, i) => {
     const val = q.choices[i];
+    var isEliminated = (state.hintElim !== null && val === state.hintElim);
     let bgColor = CONFIG.COLORS.ANSWER_BTN;
 
     // feedback highlight
@@ -898,7 +1071,9 @@ function drawAnswerButtons(W, H) {
 
     // bg gradient
     var btnGr = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
-    if (bgColor === CONFIG.COLORS.ANSWER_CORRECT) {
+    if (isEliminated) {
+      btnGr.addColorStop(0, '#444'); btnGr.addColorStop(1, '#2a2a2a');
+    } else if (bgColor === CONFIG.COLORS.ANSWER_CORRECT) {
       btnGr.addColorStop(0, '#5aff7a'); btnGr.addColorStop(1, '#22bb44');
     } else if (bgColor === CONFIG.COLORS.ANSWER_WRONG) {
       btnGr.addColorStop(0, '#ff6666'); btnGr.addColorStop(1, '#cc2222');
@@ -915,7 +1090,8 @@ function drawAnswerButtons(W, H) {
     ctx.fill();
 
     // ขอบสี
-    ctx.strokeStyle = bgColor === CONFIG.COLORS.ANSWER_CORRECT ? '#aaffbb'
+    ctx.strokeStyle = isEliminated                             ? 'rgba(100,100,100,0.6)'
+                    : bgColor === CONFIG.COLORS.ANSWER_CORRECT ? '#aaffbb'
                     : bgColor === CONFIG.COLORS.ANSWER_WRONG   ? '#ffaaaa'
                     : 'rgba(160,120,255,0.8)';
     ctx.lineWidth = 2;
@@ -927,10 +1103,26 @@ function drawAnswerButtons(W, H) {
     ctx.font = 'bold 22px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
-    ctx.strokeText(String(val), r.x + r.w / 2, r.y + r.h / 2);
-    ctx.fillStyle = '#fff';
-    ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+    if (isEliminated) {
+      // ข้อความสีเทา + ขีดทับ
+      ctx.globalAlpha = 0.45;
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+      ctx.strokeText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+      ctx.fillStyle = '#aaa';
+      ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+      // ขีดทับ
+      ctx.strokeStyle = '#ff4444'; ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(r.x + 12, r.y + r.h / 2);
+      ctx.lineTo(r.x + r.w - 12, r.y + r.h / 2);
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.strokeStyle = '#000'; ctx.lineWidth = 3;
+      ctx.strokeText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(String(val), r.x + r.w / 2, r.y + r.h / 2);
+    }
     ctx.lineWidth = 1; ctx.textBaseline = 'alphabetic';
   });
 }

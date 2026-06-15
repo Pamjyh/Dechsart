@@ -29,23 +29,43 @@ function generateQuestion(op, floor, round, opErrors) {
     answer = a - b;
 
   } else if (op === '*') {
-    // tier 0: ×1-6, tier 1: ×7-9, tier 2: ×10-12 + 2หลัก
-    if (tier === 0) {
-      a = randInt(2, 9); b = randInt(2, 6);
-    } else if (tier === 1) {
-      a = randInt(2, 12); b = randInt(2, 9);
+    // Scale ตาม floor: ยิ่งชั้นสูง ตัวคูณใหญ่ขึ้น
+    // floor 1-20:  tier0=×(2-9)×(2-6),  tier1=×(2-12)×(2-9),  tier2=×(3-15)×(3-12)
+    // floor 21-40: tier0=×(2-12)×(2-9), tier1=×(3-15)×(3-12), tier2=×(4-20)×(4-15)
+    // floor 41+:   tier0=×(3-15)×(3-12),tier1=×(4-20)×(4-15), tier2=×(5-25)×(5-20)
+    var isHighMult = floor > 40;
+    var isMidMult  = floor > 20;
+    if (isHighMult) {
+      if (tier === 0)      { a = randInt(3, 15); b = randInt(3, 12); }
+      else if (tier === 1) { a = randInt(4, 20); b = randInt(4, 15); }
+      else                 { a = randInt(5, 25); b = randInt(5, 20); }
+    } else if (isMidMult) {
+      if (tier === 0)      { a = randInt(2, 12); b = randInt(2, 9);  }
+      else if (tier === 1) { a = randInt(3, 15); b = randInt(3, 12); }
+      else                 { a = randInt(4, 20); b = randInt(4, 15); }
     } else {
-      a = randInt(3, 15); b = randInt(3, 12);
+      if (tier === 0)      { a = randInt(2, 9);  b = randInt(2, 6);  }
+      else if (tier === 1) { a = randInt(2, 12); b = randInt(2, 9);  }
+      else                 { a = randInt(3, 15); b = randInt(3, 12); }
     }
     answer = a * b;
 
   } else { // '/'
-    if (tier === 0) {
-      b = randInt(2, 6); answer = randInt(2, 9);
-    } else if (tier === 1) {
-      b = randInt(2, 9); answer = randInt(2, 12);
+    // Scale ตาม floor เช่นเดียวกับ × (answer = quotient, a = b × answer)
+    var isHighDiv = floor > 40;
+    var isMidDiv  = floor > 20;
+    if (isHighDiv) {
+      if (tier === 0)      { b = randInt(3, 12); answer = randInt(3, 15); }
+      else if (tier === 1) { b = randInt(4, 15); answer = randInt(4, 20); }
+      else                 { b = randInt(5, 20); answer = randInt(5, 25); }
+    } else if (isMidDiv) {
+      if (tier === 0)      { b = randInt(2, 9);  answer = randInt(2, 12); }
+      else if (tier === 1) { b = randInt(3, 12); answer = randInt(3, 15); }
+      else                 { b = randInt(4, 15); answer = randInt(4, 20); }
     } else {
-      b = randInt(2, 12); answer = randInt(2, 15);
+      if (tier === 0)      { b = randInt(2, 6);  answer = randInt(2, 9);  }
+      else if (tier === 1) { b = randInt(2, 9);  answer = randInt(2, 12); }
+      else                 { b = randInt(2, 12); answer = randInt(2, 15); }
     }
     a = b * answer;
   }

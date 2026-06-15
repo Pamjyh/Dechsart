@@ -53,6 +53,12 @@ const CONFIG = {
     RAGE_TIMER_MULT:   0.80, // timer ลดลง 20% ตอน rage
   },
 
+  // ── Game Mechanics ───────────────────────────────────
+  GAME: {
+    HINT_CRYSTAL_COST: 1,  // crystal ที่ต้องจ่ายเพื่อขอ hint
+    INTRO_FRAMES:      90, // ระยะเวลา boss intro (90 frames ≈ 1.5s)
+  },
+
   // ── HP ───────────────────────────────────────────────
   HP: {
     HERO_BASE: 100,
