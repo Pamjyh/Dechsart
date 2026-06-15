@@ -9,9 +9,6 @@ var HEROES = {
     description: 'วีรบุรุษไฟเริ่มต้น ถนัดบวก',
     draw: function(ctx, x, y, size, frame) {
       var bounce = Math.sin(frame * 0.05) * 3;
-      var grd = ctx.createRadialGradient(x, y+bounce, 5, x, y+bounce, size*0.8);
-      grd.addColorStop(0, 'rgba(255,200,80,0.3)'); grd.addColorStop(1, 'rgba(255,100,20,0)');
-      ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x, y+bounce, size*0.8, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#FFD700'; ctx.beginPath();
       ctx.ellipse(x, y+bounce, size*0.35, size*0.45, 0, 0, Math.PI*2); ctx.fill();
       ctx.fillStyle = '#FFE082'; ctx.beginPath();
@@ -157,13 +154,6 @@ var HEROES = {
     description: 'ฟ้าผ่า 2 ตัวพร้อมกัน',
     draw: function(ctx, x, y, size, frame) {
       var b = Math.sin(frame * 0.05) * 3;
-      var glow = Math.sin(frame * 0.1) * 0.3 + 0.7;
-      // รัศมีฟ้า
-      ctx.globalAlpha = glow * 0.4;
-      var g = ctx.createRadialGradient(x, y+b, 5, x, y+b, size*0.9);
-      g.addColorStop(0, 'rgba(150,150,255,0.6)'); g.addColorStop(1, 'rgba(0,0,150,0)');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y+b, size*0.9, 0, Math.PI*2); ctx.fill();
-      ctx.globalAlpha = 1;
       // ฉลองพระองค์
       ctx.fillStyle = '#6633CC'; ctx.beginPath();
       ctx.ellipse(x, y+size*0.1+b, size*0.32, size*0.5, 0, 0, Math.PI*2); ctx.fill();
@@ -265,10 +255,6 @@ var HEROES = {
     draw: function(ctx, x, y, size, frame) {
       var b = Math.sin(frame * 0.03) * 3;
       var spin = frame * 0.015;
-      // รัศมีรุ้ง
-      var rg = ctx.createRadialGradient(x, y+b, 5, x, y+b, size*1.1);
-      rg.addColorStop(0, 'rgba(255,200,100,0.5)'); rg.addColorStop(0.5, 'rgba(100,200,255,0.3)'); rg.addColorStop(1, 'rgba(200,100,255,0)');
-      ctx.fillStyle = rg; ctx.beginPath(); ctx.arc(x, y+b, size*1.1, 0, Math.PI*2); ctx.fill();
       // 4 แขน
       ['#FF6B35','#4ECDC4','#FFD93D','#6BCB77'].forEach(function(c, i) {
         var a = spin + (i/4)*Math.PI*2;
@@ -303,13 +289,6 @@ var HEROES = {
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*size*0.22, Math.sin(a)*size*0.22); ctx.stroke();
       });
       ctx.restore(); ctx.lineWidth = 1;
-      // รัศมีสีครบ 4 ธาตุ
-      ['#FF6B35','#4ECDC4','#FFD93D','#6BCB77'].forEach(function(c, i) {
-        var a = spin + (i/4)*Math.PI*2;
-        var grd = ctx.createRadialGradient(x+Math.cos(a)*size*0.5, y+Math.sin(a)*size*0.4+b, 0, x+Math.cos(a)*size*0.5, y+Math.sin(a)*size*0.4+b, size*0.3);
-        grd.addColorStop(0, c+'99'); grd.addColorStop(1, c+'00');
-        ctx.fillStyle = grd; ctx.beginPath(); ctx.arc(x+Math.cos(a)*size*0.5, y+Math.sin(a)*size*0.4+b, size*0.3, 0, Math.PI*2); ctx.fill();
-      });
       // 4 แขน
       ctx.fillStyle = '#1A5C3A';
       [0.5,-0.5,0.7,-0.7].forEach(function(dy, i) {

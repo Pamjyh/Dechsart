@@ -752,12 +752,18 @@ function render() {
     var hx = W * (0.5 + (i - (partySize-1)/2) * 0.30);
     var hy = H * 0.81;
     var isActive = (h === state.hero);
-    var heroSize = isActive ? 52 : 38;
+    var heroSize = isActive ? 68 : 50;
     if (isActive) {
+      // วงรีเรืองแสงใต้เท้า (แทน shadowBlur ที่ทำให้ตัวละครเบลอ)
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(hx, hy + heroSize * 0.6, heroSize * 0.28, heroSize * 0.07, 0, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,215,0,0.55)';
       ctx.shadowColor = '#FFD700'; ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.restore();
     }
     h.draw(ctx, hx, hy, heroSize, state.frame);
-    ctx.shadowBlur = 0;
     ctx.fillStyle = isActive ? '#FFD700' : 'rgba(255,255,255,0.4)';
     ctx.font = (isActive ? 'bold ' : '') + '9px sans-serif';
     ctx.textAlign = 'center';
