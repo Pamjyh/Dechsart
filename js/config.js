@@ -47,6 +47,10 @@ const CONFIG = {
     BOSS_BASE: 15,
     WEAK_MULTIPLIER: 2.0,    // boss weak to this element
     RESIST_MULTIPLIER: 0.5,  // boss resists this element
+    // Boss Rage Phase
+    RAGE_THRESHOLD:    0.30, // HP% ที่ boss เข้า rage (เหลือ 30%)
+    RAGE_DMG_MULT:     1.5,  // boss damage multiplier ตอน rage
+    RAGE_TIMER_MULT:   0.80, // timer ลดลง 20% ตอน rage
   },
 
   // ── HP ───────────────────────────────────────────────

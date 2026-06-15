@@ -1,12 +1,13 @@
 // math.js — question generator พร้อม progressive difficulty
 
 /**
- * @param {string} op     '+' | '-' | '*' | '/'
- * @param {number} floor  ชั้นปัจจุบัน (กำหนด range หลัก)
- * @param {number} round  จำนวนข้อที่ตอบไปแล้วในรอบนี้ (0 = ข้อแรก)
+ * @param {string} op       '+' | '-' | '*' | '/'
+ * @param {number} floor    ชั้นปัจจุบัน (กำหนด range หลัก)
+ * @param {number} round    จำนวนข้อที่ตอบไปแล้วในรอบนี้ (0 = ข้อแรก)
+ * @param {object} opErrors { '+':n, '-':n, '*':n, '/':n } error counts ของผู้เล่น
  * @returns {{ question, answer, choices, op, difficulty }}
  */
-function generateQuestion(op, floor, round) {
+function generateQuestion(op, floor, round, opErrors) {
   round = round || 0;
 
   // difficulty tier ตาม round (ยากขึ้นเรื่อยๆ ใน battle เดียวกัน)
@@ -50,7 +51,7 @@ function generateQuestion(op, floor, round) {
   }
 
   var question = buildQuestion(a, b, op);
-  var choices  = buildChoices(answer, op, tier);
+  var choices  = buildChoices(answer, op, tier, a, b, opErrors);
 
   return { question: question, answer: answer, choices: choices, op: op, difficulty: tier };
 }
@@ -68,30 +69,64 @@ function buildQuestion(a, b, op) {
   return a + ' ' + symbols[op] + ' ' + b + ' = ?';
 }
 
-function buildChoices(answer, op, tier) {
+// buildChoices — สร้างตัวเลือกผิด 2 ตัว
+// opErrors ใช้ปรับ spread (ยิ่ง error เยอะ → spread แคบ → แยกยากขึ้น)
+// a, b ใช้สร้าง smart distractor ตาม pattern ความผิดพลาดของแต่ละ op
+function buildChoices(answer, op, tier, a, b, opErrors) {
+  var errCount = (opErrors && opErrors[op]) || 0;
+
+  // spread ปรับตาม error: ยิ่ง error เยอะ ตัวเลือกผิดยิ่งใกล้คำตอบ
+  var basePct  = tier === 2 ? 0.15 : 0.30;
+  var adaptPct = Math.max(0.06, basePct - errCount * 0.012); // floor 6%
+
   var wrongs = new Set();
+
+  // ── Smart distractors (pattern-based) ──────────────────────────
+  // ใช้เมื่อ errCount >= 2 (ผู้เล่นเริ่มมี pattern ผิดซ้ำ)
+  if (errCount >= 2) {
+    var smart = [];
+    if (op === '*' && a !== undefined && b !== undefined) {
+      // ผิดแบบ off-by-one-factor: a×(b±1), (a±1)×b
+      smart.push(a * (b + 1));
+      smart.push(a * (b - 1));
+    } else if (op === '/') {
+      // ผิดแบบ quotient ±1
+      smart.push(answer + 1);
+      smart.push(Math.max(1, answer - 1));
+    } else if (op === '+') {
+      // ผิดแบบ carry: ±10
+      if (answer >= 10) smart.push(answer - 10);
+      smart.push(answer + 10);
+    } else if (op === '-') {
+      // ผิดแบบ borrow: ±10
+      smart.push(answer + 10);
+      if (answer >= 10) smart.push(answer - 10);
+    }
+    for (var si = 0; si < smart.length && wrongs.size < 2; si++) {
+      var sw = smart[si];
+      if (sw !== answer && sw >= 0) wrongs.add(sw);
+    }
+  }
+
+  // ── Random distractors (narrow spread เมื่อ error เยอะ) ────────
   var attempts = 0;
-
-  while (wrongs.size < 2 && attempts < 50) {
+  while (wrongs.size < 2 && attempts < 60) {
     attempts++;
-    var spread = Math.max(2, Math.floor(answer * (tier === 2 ? 0.15 : 0.3)));
-    var delta = randInt(1, spread);
-    var wrong = Math.random() < 0.5 ? answer + delta : Math.max(0, answer - delta);
-
+    var spread = Math.max(2, Math.floor(answer * adaptPct));
+    var delta  = randInt(1, spread);
+    var wrong  = Math.random() < 0.5 ? answer + delta : Math.max(0, answer - delta);
     if (op === '/') wrong = Math.max(1, Math.round(wrong));
     if (op === '-') wrong = Math.max(0, wrong);
     if (wrong !== answer) wrongs.add(wrong);
   }
 
-  // fallback ถ้า choices ยังไม่ครบ
+  // fallback
   if (wrongs.size < 2) {
     wrongs.add(answer + 1);
     wrongs.add(answer > 1 ? answer - 1 : answer + 2);
   }
 
   var choices = [answer].concat(Array.from(wrongs).slice(0, 2));
-
-  // shuffle
   for (var i = choices.length - 1; i > 0; i--) {
     var j = Math.floor(Math.random() * (i + 1));
     var tmp = choices[i]; choices[i] = choices[j]; choices[j] = tmp;

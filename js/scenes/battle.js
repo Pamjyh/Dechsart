@@ -34,6 +34,9 @@ var state = {
   battleRound: 0,    // จำนวนข้อที่ตอบไปแล้วในรอบนี้
   opCounts: { '+': 0, '-': 0, '*': 0, '/': 0 },
   currentOp: '+',
+  // Boss Rage Phase
+  rage: false,              // true เมื่อ boss HP < RAGE_THRESHOLD
+  rageFlashTimer: 0,        // frame countdown สำหรับ flash effect
   // Endless Arena
   endless:           false,
   endlessFloor:      0,
@@ -128,6 +131,8 @@ function initBattle(canvasEl, floor, saveData, endless, endlessFloor) {
   state.flowCount = 0;
   state.critCount = 0;
   state.battleRound = 0;
+  state.rage = false;
+  state.rageFlashTimer = 0;
   // รีเซ็ต end-screen flag เสมอ เพื่อป้องกัน handler ค้างจาก session ก่อน
   canvas._endHandled = false;
   canvas._endTouched = false;
@@ -198,20 +203,39 @@ function update() {
 
   // Endless shift banner countdown
   if (state.shiftBannerTimer > 0) state.shiftBannerTimer--;
+
+  // Rage flash countdown
+  if (state.rageFlashTimer > 0) state.rageFlashTimer--;
 }
 
 // ── Questions ────────────────────────────────────────────────────
 function startQuestion() {
   if (state.phase === 'victory' || state.phase === 'defeat') return;
+
+  // ── ตรวจ Boss Rage Phase ──────────────────────────────────────
+  var wasRage = state.rage;
+  state.rage = (state.bossHP / state.bossMaxHP) < CONFIG.DAMAGE.RAGE_THRESHOLD;
+  if (state.rage && !wasRage) {
+    // เพิ่งเข้า rage — flash ครั้งแรก
+    state.rageFlashTimer = 45;
+    spawnParticles(canvas.width * 0.5, canvas.height * 0.20, 18, '#FF2222', 'circle');
+  }
+
   // สลับ op ตาม boss weak/resist เพื่อบังคับ variety
   state.currentOp = pickOp();
-  state.question  = generateQuestion(state.currentOp, state.floor, state.battleRound);
+  state.question  = generateQuestion(state.currentOp, state.floor, state.battleRound, state.opErrors);
   state.questionStart = performance.now();
   // snapshot timer values ณ ตอนนี้ — ไม่ re-calc ระหว่างโจทย์ (QA req)
   var t = _getTimerMs(state.floor, state.currentOp);
   state.currentTimeoutMs = t.timeoutMs;
   state.currentCritMs    = t.critMs;
   state.currentFastMs    = t.fastMs;
+  // Rage: timer สั้นลง 20%
+  if (state.rage) {
+    state.currentTimeoutMs = Math.round(state.currentTimeoutMs * CONFIG.DAMAGE.RAGE_TIMER_MULT);
+    state.currentCritMs    = Math.round(state.currentCritMs    * CONFIG.DAMAGE.RAGE_TIMER_MULT);
+    state.currentFastMs    = Math.round(state.currentFastMs    * CONFIG.DAMAGE.RAGE_TIMER_MULT);
+  }
   state.phase = 'question';
 }
 
@@ -404,7 +428,9 @@ function onAnswerSelected(chosen) {
         }
       }
     }
-    var dmg = CONFIG.DAMAGE.BOSS_BASE;
+    var dmg = state.rage
+      ? Math.round(CONFIG.DAMAGE.BOSS_BASE * CONFIG.DAMAGE.RAGE_DMG_MULT)
+      : CONFIG.DAMAGE.BOSS_BASE;
     state.heroHP = Math.max(0, state.heroHP - dmg);
     playWrong();
     spawnParticles(canvas.width * 0.28, canvas.height * 0.65, 8, '#FF4444');
@@ -423,7 +449,9 @@ function onAnswerSelected(chosen) {
 
 function onTimeout() {
   state.combo = 0;
-  const dmg = CONFIG.DAMAGE.BOSS_BASE;
+  var dmg = state.rage
+    ? Math.round(CONFIG.DAMAGE.BOSS_BASE * CONFIG.DAMAGE.RAGE_DMG_MULT)
+    : CONFIG.DAMAGE.BOSS_BASE;
   state.heroHP = Math.max(0, state.heroHP - dmg);
   playTimeout();
   spawnParticles(canvas.width * 0.28, canvas.height * 0.65, 6, '#888');
@@ -566,7 +594,14 @@ function render() {
   drawHPBar(W * 0.08, 35, W * 0.84, 14, state.bossHP, state.bossMaxHP, CONFIG.COLORS.HP_BOSS, 'บอส');
 
   // Boss sprite — ย้ายขึ้นมา H*0.20
+  if (state.rage) {
+    // Rage: กระพริบสีแดงรอบ boss
+    var ragePulse = Math.sin(state.frame * 0.25) * 0.5 + 0.5; // 0-1
+    ctx.shadowColor = '#FF2222';
+    ctx.shadowBlur  = 15 + ragePulse * 20;
+  }
   state.boss.draw(ctx, W * 0.5, H * 0.20, 80, state.frame);
+  ctx.shadowBlur = 0;
 
   // Element indicator (op ปัจจุบัน)
   if (state.currentOp) {
@@ -694,6 +729,27 @@ function render() {
     ctx.restore();
   });
   ctx.lineWidth = 1;
+
+  // Rage: แสดง RAGE! banner ตอนเพิ่งเข้า rage + indicator ถาวร
+  if (state.rageFlashTimer > 0) {
+    var rfAlpha = state.rageFlashTimer > 30 ? 1 : state.rageFlashTimer / 30;
+    ctx.globalAlpha = rfAlpha;
+    ctx.font = 'bold 30px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 5;
+    ctx.strokeText('💢 RAGE!', W / 2, H * 0.14);
+    ctx.fillStyle = '#FF3333';
+    ctx.fillText('💢 RAGE!', W / 2, H * 0.14);
+    ctx.globalAlpha = 1; ctx.lineWidth = 1;
+  } else if (state.rage && state.phase !== 'victory' && state.phase !== 'defeat') {
+    // indicator เล็กๆ ถาวรตลอดช่วง rage
+    ctx.globalAlpha = 0.75 + Math.sin(state.frame * 0.15) * 0.25;
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#FF4444';
+    ctx.fillText('💢 RAGE', 66, 38);
+    ctx.globalAlpha = 1;
+  }
 
   // Impact flash (cartoon crit effect)
   if (state.phase === 'feedback' && state.feedbackType === 'correct_crit' && state.feedbackTimer > 45) {
