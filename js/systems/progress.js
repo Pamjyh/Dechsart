@@ -41,6 +41,8 @@ var DEFAULT_SAVE = {
     weekStart:      '',     // 'YYYY-MM-DD' วันจันทร์ของสัปดาห์นี้
     correctAnswers: 0,      // ตอบถูกสะสมตลอดสัปดาห์ (จ-ศ)
   },
+  // Endless Arena
+  endlessMaxFloor: 0,       // ชั้นสูงสุดที่เคยถึงใน Endless Arena
 };
 
 function loadProgress() {
@@ -72,7 +74,7 @@ function saveProgress(data) {
 }
 
 function updateAfterVictory(data, floor, score) {
-  data.maxFloor   = Math.max(data.maxFloor, floor + 1);
+  data.maxFloor   = Math.min(60, Math.max(data.maxFloor, floor + 1));
   data.currentFloor = Math.min(floor + 1, 60);
   data.totalScore += score;
   data.gamesPlayed++;

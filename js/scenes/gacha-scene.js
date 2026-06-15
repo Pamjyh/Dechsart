@@ -33,7 +33,21 @@ function initGacha(canvas, save) {
     gachaState._handlers.push({ type: type, fn: fn });
   }
 
+  // touch handler (iOS/iPad — click ไม่ reliable บน canvas ที่มี touch-action:none)
+  var _gachaTouched = false;
+  addH('touchstart', function(e) {
+    e.preventDefault();
+    resumeAudio();
+    _gachaTouched = true;
+    var t = e.touches[0];
+    var rect = canvas.getBoundingClientRect();
+    var cx = (t.clientX - rect.left) * (CONFIG.CANVAS.BASE_WIDTH  / rect.width);
+    var cy = (t.clientY - rect.top)  * (CONFIG.CANVAS.BASE_HEIGHT / rect.height);
+    handleGachaTap(cx, cy, canvas);
+  }, { passive: false });
+
   addH('click', function(e) {
+    if (_gachaTouched) { _gachaTouched = false; return; } // ป้องกัน double-fire
     resumeAudio();
     var rect = canvas.getBoundingClientRect();
     var cx = (e.clientX - rect.left) * (CONFIG.CANVAS.BASE_WIDTH  / rect.width);

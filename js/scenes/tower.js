@@ -120,6 +120,19 @@ function handleTowerTap(cx, cy, canvas) {
     return;
   }
 
+  // ── ปุ่ม Endless Arena (header ขวา, เฉพาะเมื่อ maxFloor >= 60) ──
+  if (save.maxFloor >= 60 && cx >= W - 92 && cx <= W - 6 && cy >= 8 && cy <= 44) {
+    cancelAnimationFrame(towerState.animId);
+    towerState._handlers.forEach(function(h) {
+      canvas.removeEventListener(h.type, h.fn);
+    });
+    SCENE.switch('battle', canvas, {
+      floor: 60, save: save,
+      endless: true, endlessFloor: save.endlessMaxFloor || 0
+    });
+    return;
+  }
+
   // ── ปุ่ม Gacha ──
   if (cx >= 8 && cx <= 98 && cy >= H - 38 && cy <= H - 6) {
     cancelAnimationFrame(towerState.animId);
@@ -276,9 +289,29 @@ function renderTower(canvas, ctx) {
   ctx.fillStyle = '#FFD700'; ctx.font = 'bold 18px sans-serif';
   drawIconLabel(ctx, '⛰', 'เขาจักรวาล', W / 2, 26, 22);
   ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = '11px sans-serif';
-  ctx.textAlign = 'center'; // reset หลัง drawIconLabel — ห้ามลบ
+  ctx.textAlign = 'center';
   ctx.fillText('ถึงชั้น ' + save.maxFloor + ' / 60', W / 2, 44);
   ctx.textAlign = 'left';
+
+  // ปุ่ม Endless Arena (header ขวา — เฉพาะเมื่อ maxFloor >= 60)
+  if (save.maxFloor >= 60) {
+    var pulse = Math.sin(towerState.frame * 0.07) * 0.2 + 0.8;
+    ctx.globalAlpha = pulse;
+    ctx.fillStyle = '#3a0060';
+    towerRR(ctx, W - 92, 8, 86, 36, 8); ctx.fill();
+    ctx.strokeStyle = '#CC44FF'; ctx.lineWidth = 1.5;
+    towerRR(ctx, W - 92, 8, 86, 36, 8); ctx.stroke(); ctx.lineWidth = 1;
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#EE88FF'; ctx.font = 'bold 11px sans-serif';
+    drawIconLabel(ctx, '⚔', 'อนันต์', W - 49, 31, 15);
+    // แสดงสถิติ endlessMaxFloor
+    if ((save.endlessMaxFloor || 0) > 0) {
+      ctx.fillStyle = 'rgba(200,150,255,0.8)'; ctx.font = '9px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('สูงสุด: ' + save.endlessMaxFloor, W - 49, 44);
+      ctx.textAlign = 'left';
+    }
+  }
 
   // ── footer ──────────────────────────────────────
   ctx.fillStyle = '#1a0a3e'; ctx.fillRect(0, H - 44, W, 44);

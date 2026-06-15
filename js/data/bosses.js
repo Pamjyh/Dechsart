@@ -186,6 +186,19 @@ function getBossHP(floor) {
   return Math.floor(CONFIG.HP.BOSS_BASE * boss.hpMultiplier * (1 + Math.floor(floor/10)*0.05));
 }
 
+// ── Endless Arena ───────────────────────────────────────────────
+var BOSS_POOL_IDS = ['fire_king', 'naga_king', 'storm_king', 'wind_demon', 'final_boss'];
+
+function getBossForEndless(endlessFloor) {
+  var idx = (endlessFloor * 7 + 3) % BOSS_POOL_IDS.length;
+  return BOSSES[BOSS_POOL_IDS[idx]];
+}
+
+function getBossHPEndless(endlessFloor) {
+  var boss = getBossForEndless(endlessFloor);
+  return Math.floor(CONFIG.HP.BOSS_BASE * boss.hpMultiplier * (1 + endlessFloor * 0.15));
+}
+
 // ── Sprite wrapper — boss sprites ───────────────────────────────
 (function() {
   Object.keys(BOSSES).forEach(function(id) {

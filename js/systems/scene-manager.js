@@ -25,9 +25,11 @@ var SCENE = {
       var save  = data ? data.save  : loadProgress();
       initPartySelect(canvas, floor, save);
     } else if (name === 'battle') {
-      var floor = data ? data.floor : 1;
-      var save  = data ? data.save  : loadProgress();
-      initBattle(canvas, floor, save);
+      var floor        = data ? data.floor        : 1;
+      var save         = data ? data.save         : loadProgress();
+      var endless      = data ? !!data.endless    : false;
+      var endlessFloor = data ? (data.endlessFloor || 0) : 0;
+      initBattle(canvas, floor, save, endless, endlessFloor);
     }
   }
 };

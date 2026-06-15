@@ -34,6 +34,13 @@ var state = {
   battleRound: 0,    // จำนวนข้อที่ตอบไปแล้วในรอบนี้
   opCounts: { '+': 0, '-': 0, '*': 0, '/': 0 },
   currentOp: '+',
+  // Endless Arena
+  endless:           false,
+  endlessFloor:      0,
+  correctSinceShift: 0,   // นับตอบถูกสะสม → ทุก 3 ข้อ สลับ weak/resist
+  shiftBannerTimer:  0,   // frame countdown แสดง banner "ธาตุสลับ!"
+  currentWeak:       null, // element id ที่ weak ในรอบนี้ (endless เท่านั้น)
+  currentResist:     null, // element id ที่ resist ในรอบนี้
 };
 
 var canvas, ctx;
@@ -58,10 +65,24 @@ function _getTimerMs(floor, op) {
   };
 }
 
+// ── Endless: สุ่ม weak/resist จาก element pool ────────────────────
+var _ELEM_IDS = ['fire', 'water', 'thunder', 'wind'];
+function _pickEndlessElements() {
+  var pool = _ELEM_IDS.slice();
+  // สลับ array แบบ Fisher-Yates
+  for (var i = pool.length - 1; i > 0; i--) {
+    var j = Math.floor(Math.random() * (i + 1));
+    var tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp;
+  }
+  return { weak: pool[0], resist: pool[1] };
+}
+
 // ── Init ─────────────────────────────────────────────────────────
-function initBattle(canvasEl, floor, saveData) {
+function initBattle(canvasEl, floor, saveData, endless, endlessFloor) {
   floor = floor || 1;
   saveData = saveData || loadProgress();
+  endless = !!endless;
+  endlessFloor = endlessFloor || 0;
   canvas = canvasEl;
   ctx    = canvas.getContext('2d');
   // ลบ listener เก่าก่อน เพื่อป้องกัน resize handlers ซ้อนทับ
@@ -70,13 +91,29 @@ function initBattle(canvasEl, floor, saveData) {
   window.addEventListener('resize', resizeCanvas);
 
   state.floor    = floor;
+  state.endless       = endless;
+  state.endlessFloor  = endlessFloor;
+  state.correctSinceShift = 0;
+  state.shiftBannerTimer  = 0;
   // โหลด party ทั้งหมด
   var partyIds = (saveData.party && saveData.party.length > 0) ? saveData.party : ['devasri'];
   state.party = partyIds.map(function(id) { return HEROES[id] || STARTER_HERO; });
   state.hero  = state.party[0]; // default active hero
-  state.boss     = getBossForFloor(floor);
+
+  if (endless) {
+    state.boss    = getBossForEndless(endlessFloor);
+    state.bossHP  = state.bossMaxHP = getBossHPEndless(endlessFloor);
+    var shifted   = _pickEndlessElements();
+    state.currentWeak   = shifted.weak;
+    state.currentResist = shifted.resist;
+  } else {
+    state.boss    = getBossForFloor(floor);
+    state.bossHP  = state.bossMaxHP = getBossHP(floor);
+    state.currentWeak   = null;
+    state.currentResist = null;
+  }
+
   state.heroHP   = state.heroMaxHP = CONFIG.HP.HERO_BASE + (state.hero.hpBonus || 0);
-  state.bossHP   = state.bossMaxHP = getBossHP(floor);
   state.phase    = 'idle';
   state.particles  = [];
   state.damageNumbers = [];
@@ -158,6 +195,9 @@ function update() {
   state.damageNumbers = state.damageNumbers.filter(function(d) {
     d.y += d.vy; d.vy *= 0.92; d.life--; return d.life > 0;
   });
+
+  // Endless shift banner countdown
+  if (state.shiftBannerTimer > 0) state.shiftBannerTimer--;
 }
 
 // ── Questions ────────────────────────────────────────────────────
@@ -293,8 +333,11 @@ function onAnswerSelected(chosen) {
       CONFIG.ELEMENTS[k].op === state.currentOp
     )];
     if (elem) {
-      if (state.boss.weak === elem.id)    mult *= CONFIG.DAMAGE.WEAK_MULTIPLIER;
-      if (state.boss.resist === elem.id)  mult *= CONFIG.DAMAGE.RESIST_MULTIPLIER;
+      // Endless: ใช้ currentWeak/currentResist (สลับได้); ปกติ: ใช้ boss.weak/resist
+      var weakId   = state.endless ? state.currentWeak   : state.boss.weak;
+      var resistId = state.endless ? state.currentResist : state.boss.resist;
+      if (weakId   && elem.id === weakId)   mult *= CONFIG.DAMAGE.WEAK_MULTIPLIER;
+      if (resistId && elem.id === resistId) mult *= CONFIG.DAMAGE.RESIST_MULTIPLIER;
     }
 
     const dmg = Math.round(mult);
@@ -302,6 +345,18 @@ function onAnswerSelected(chosen) {
     state.score  += dmg;
     state.combo++;
     state.battleRound++;
+
+    // Endless: นับตอบถูก → ทุก 3 ข้อสลับ weak/resist
+    if (state.endless) {
+      state.correctSinceShift++;
+      if (state.correctSinceShift >= 3) {
+        state.correctSinceShift = 0;
+        var shifted = _pickEndlessElements();
+        state.currentWeak   = shifted.weak;
+        state.currentResist = shifted.resist;
+        state.shiftBannerTimer = 90; // ~1.5 วินาที ที่ 60fps
+      }
+    }
 
     // Flow State trigger (5 ติด)
     if (state.combo > 0 && state.combo % 5 === 0 && state.flowCount === 0) {
@@ -493,7 +548,10 @@ function render() {
   ctx.font = '13px sans-serif';
   ctx.textAlign = 'left';
   var tierLabel = state.battleRound <= 3 ? '' : state.battleRound <= 6 ? ' 🔥' : ' 💥';
-  ctx.fillText('ชั้น ' + state.floor + '  ข้อที่ ' + (state.battleRound+1) + tierLabel, 66, 22);
+  var floorLabel = state.endless
+    ? ('⚔ อนันต์ ' + (state.endlessFloor + 1) + '  ข้อที่ ' + (state.battleRound+1) + tierLabel)
+    : ('ชั้น ' + state.floor + '  ข้อที่ ' + (state.battleRound+1) + tierLabel);
+  ctx.fillText(floorLabel, 66, 22);
 
   // Score + Combo
   ctx.textAlign = 'right';
@@ -642,6 +700,32 @@ function render() {
     var flashAlpha = (state.feedbackTimer - 45) / 10 * 0.45;
     ctx.fillStyle = 'rgba(255,240,100,' + flashAlpha + ')';
     ctx.fillRect(0, 0, W, H);
+  }
+
+  // Endless: แสดง weak/resist ปัจจุบัน
+  if (state.endless && state.currentWeak) {
+    ctx.textAlign = 'right';
+    ctx.font = '11px sans-serif';
+    // หา label ของ weak/resist
+    var wElem = Object.values(CONFIG.ELEMENTS).find(function(e){ return e.id === state.currentWeak; });
+    var rElem = Object.values(CONFIG.ELEMENTS).find(function(e){ return e.id === state.currentResist; });
+    if (wElem) { ctx.fillStyle = '#aaffaa'; ctx.fillText('💚 ' + wElem.label, W - 8, H * 0.08); }
+    if (rElem) { ctx.fillStyle = '#ffaaaa'; ctx.fillText('❤ ' + rElem.label, W - 8, H * 0.08 + 15); }
+    ctx.textAlign = 'left';
+  }
+
+  // Endless: Shift banner "⚡ ธาตุสลับ!"
+  if (state.shiftBannerTimer > 0) {
+    var bAlpha = state.shiftBannerTimer > 70 ? 1
+               : state.shiftBannerTimer / 70;
+    ctx.globalAlpha = bAlpha;
+    ctx.font = 'bold 26px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.strokeStyle = '#000'; ctx.lineWidth = 4;
+    ctx.strokeText('⚡ ธาตุสลับ!', W / 2, H * 0.70);
+    ctx.fillStyle = '#FFE135';
+    ctx.fillText('⚡ ธาตุสลับ!', W / 2, H * 0.70);
+    ctx.globalAlpha = 1; ctx.lineWidth = 1;
   }
 
   // Victory / Defeat
@@ -820,34 +904,75 @@ function drawFeedback(W, H, correct) {
 }
 
 function drawEndScreen(W, H, victory) {
-  ctx.fillStyle = victory ? 'rgba(0,20,0,0.75)' : 'rgba(20,0,0,0.75)';
+  // ── ชนะเกมทั้งหมด (floor 60, ไม่ใช่ endless) ─────────────────
+  var isGameClear = victory && state.floor >= 60 && !state.endless;
+  var isEndlessVictory = victory && state.endless;
+
+  ctx.fillStyle = isGameClear     ? 'rgba(0,10,30,0.85)'
+                : isEndlessVictory ? 'rgba(0,0,20,0.82)'
+                : victory          ? 'rgba(0,20,0,0.75)'
+                :                    'rgba(20,0,0,0.75)';
   ctx.fillRect(0, 0, W, H);
 
-  ctx.fillStyle = victory ? '#FFD700' : '#FF4444';
-  ctx.font = 'bold 48px sans-serif';
-  drawIconLabel(ctx, victory ? '🎉' : '💀', victory ? 'ชนะ!' : 'แพ้', W / 2, H * 0.35, 52);
+  if (isGameClear) {
+    // หน้าพิเศษ: ชนะเกม!
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 42px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏆', W / 2 - 26, H * 0.28);
+    ctx.fillStyle = '#FFD700'; ctx.font = 'bold 32px sans-serif';
+    ctx.fillText('ชนะเกม!', W / 2 + 30, H * 0.28);
+    ctx.fillStyle = '#FFF'; ctx.font = '16px sans-serif';
+    ctx.fillText('พิชิตเขาจักรวาล 60 ชั้น', W / 2, H * 0.38);
+    ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 18px sans-serif';
+    ctx.fillText('คะแนน: ' + state.score, W / 2, H * 0.46);
+    ctx.textAlign = 'left';
+  } else if (isEndlessVictory) {
+    // Endless victory
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#FF9EFF'; ctx.font = 'bold 28px sans-serif';
+    ctx.fillText('⚔ อนันต์ ' + (state.endlessFloor + 1) + ' ✓', W / 2, H * 0.30);
+    ctx.fillStyle = '#FFF'; ctx.font = '16px sans-serif';
+    ctx.fillText('ผ่านแล้ว! ต่อไปหรือกลับ?', W / 2, H * 0.38);
+    ctx.fillStyle = '#4ECDC4'; ctx.font = 'bold 18px sans-serif';
+    ctx.fillText('คะแนน: ' + state.score, W / 2, H * 0.45);
+    ctx.textAlign = 'left';
+  } else {
+    ctx.fillStyle = victory ? '#FFD700' : '#FF4444';
+    ctx.font = 'bold 48px sans-serif';
+    drawIconLabel(ctx, victory ? '🎉' : '💀', victory ? 'ชนะ!' : 'แพ้', W / 2, H * 0.35, 52);
+    ctx.fillStyle = '#fff';
+    ctx.font = '20px sans-serif';
+    ctx.fillText('คะแนน: ' + state.score, W / 2, H * 0.45);
+  }
 
-  ctx.fillStyle = '#fff';
-  ctx.font = '20px sans-serif';
-  ctx.fillText('คะแนน: ' + state.score, W / 2, H * 0.45);
-
-  // ปุ่มหลัก: ชั้นต่อไป (ชนะ) | ลองใหม่ (แพ้)
+  // ปุ่มหลัก: ชั้นต่อไป (ชนะ ไม่ใช่ clear) | ลองใหม่ (แพ้) | กลับหอ (game clear)
   var btn1W = 220, btn1H = 52;
   var b1x = (W - btn1W) / 2, b1y = H * 0.51;
-  ctx.fillStyle = victory ? '#2d7a3a' : '#7a2d2d';
-  roundRect(ctx, b1x, b1y, btn1W, btn1H, 12); ctx.fill();
-  ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
-  drawIconLabel(ctx, victory ? '⬆️' : '🔄', victory ? 'ชั้นต่อไป' : 'ลองใหม่', W / 2, b1y + btn1H / 2 + 7, 26);
+  var showBtn1 = !isGameClear; // game clear ไม่มีปุ่มหลัก
+  if (showBtn1) {
+    var btn1Color = victory ? '#2d7a3a' : '#7a2d2d';
+    if (isEndlessVictory) btn1Color = '#4a1a7a';
+    ctx.fillStyle = btn1Color;
+    roundRect(ctx, b1x, b1y, btn1W, btn1H, 12); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 20px sans-serif';
+    var btn1Icon  = isEndlessVictory ? '⚔' : (victory ? '⬆️' : '🔄');
+    var btn1Label = isEndlessVictory ? 'อนันต์ต่อไป' : (victory ? 'ชั้นต่อไป' : 'ลองใหม่');
+    drawIconLabel(ctx, btn1Icon, btn1Label, W / 2, b1y + btn1H / 2 + 7, 26);
+  }
 
   // ปุ่มรอง: กลับหน้าหอ
   var btn2W = 220, btn2H = 44;
-  var b2x = (W - btn2W) / 2, b2y = b1y + btn1H + 12;
-  ctx.fillStyle = '#2a2a4a';
+  var b2x = (W - btn2W) / 2;
+  var b2y = isGameClear ? H * 0.54 : b1y + btn1H + 12;
+  if (isGameClear) btn2H = 52;
+  ctx.fillStyle = isGameClear ? '#5a3a00' : '#2a2a4a';
   roundRect(ctx, b2x, b2y, btn2W, btn2H, 12); ctx.fill();
-  ctx.strokeStyle = '#6655AA'; ctx.lineWidth = 1.5;
+  ctx.strokeStyle = isGameClear ? '#FFD700' : '#6655AA'; ctx.lineWidth = isGameClear ? 2 : 1.5;
   roundRect(ctx, b2x, b2y, btn2W, btn2H, 12); ctx.stroke();
   ctx.lineWidth = 1;
-  ctx.fillStyle = '#CCC'; ctx.font = '17px sans-serif';
+  ctx.fillStyle = isGameClear ? '#FFD700' : '#CCC';
+  ctx.font = isGameClear ? 'bold 18px sans-serif' : '17px sans-serif';
   drawIconLabel(ctx, '⬅️', 'กลับหน้าหอ', W / 2, b2y + btn2H / 2 + 6, 22);
   ctx.textAlign = 'left';
 
@@ -860,7 +985,8 @@ function drawEndScreen(W, H, victory) {
       var sx = W / rect.width, sy = H / rect.height;
       var cx = (clientX - rect.left) * sx;
       var cy = (clientY - rect.top)  * sy;
-      var hit1 = cx >= b1x && cx <= b1x + btn1W && cy >= b1y && cy <= b1y + btn1H;
+      // hit1 ใช้งานได้เฉพาะกรณีไม่ใช่ game clear
+      var hit1 = showBtn1 && cx >= b1x && cx <= b1x + btn1W && cy >= b1y && cy <= b1y + btn1H;
       var hit2 = cx >= b2x && cx <= b2x + btn2W && cy >= b2y && cy <= b2y + btn2H;
       if (!hit1 && !hit2) return;
 
@@ -873,14 +999,47 @@ function drawEndScreen(W, H, victory) {
         var crystalGain = calcCrystalReward(state.floor, state.critCount || 0);
         state.saveData.crystals = (state.saveData.crystals || 0) + crystalGain;
         state.saveData = onFloorCleared(state.saveData);
-        if (state.floor % 10 === 0) state.saveData = onBossDefeated(state.saveData, state.score);
-        updateAfterVictory(state.saveData, state.floor, state.score);
+        // onBossDefeated เฉพาะโหมดปกติ (endless ใช้ floor=60 ตลอด ทำให้ trigger ทุกครั้ง)
+        if (!state.endless && state.floor % 10 === 0) state.saveData = onBossDefeated(state.saveData, state.score);
+        if (!state.endless) {
+          updateAfterVictory(state.saveData, state.floor, state.score);
+        } else {
+          // Endless: อัปเดต endlessMaxFloor
+          var nextEF = state.endlessFloor + 1;
+          if (nextEF > (state.saveData.endlessMaxFloor || 0)) {
+            state.saveData.endlessMaxFloor = nextEF;
+          }
+          saveProgress(state.saveData);
+        }
       }
 
       if (hit1) {
-        if (victory) { saveVictory(); SCENE.switch('battle', canvas, { floor: state.floor + 1, save: state.saveData }); }
-        else         { updateAfterDefeat(state.saveData, state.score); SCENE.switch('battle', canvas, { floor: state.floor, save: state.saveData }); }
+        if (isEndlessVictory) {
+          // ต่อ Endless Floor ถัดไป (floor ยังคงเป็น 60 แต่ endlessFloor++)
+          saveVictory();
+          var nextEF = state.endlessFloor + 1;
+          SCENE.switch('battle', canvas, {
+            floor: 60, save: state.saveData,
+            endless: true, endlessFloor: nextEF
+          });
+        } else if (victory) {
+          // ชั้นต่อไปปกติ
+          saveVictory();
+          SCENE.switch('battle', canvas, { floor: state.floor + 1, save: state.saveData });
+        } else {
+          // ลองใหม่
+          updateAfterDefeat(state.saveData, state.score);
+          if (state.endless) {
+            SCENE.switch('battle', canvas, {
+              floor: 60, save: state.saveData,
+              endless: true, endlessFloor: state.endlessFloor
+            });
+          } else {
+            SCENE.switch('battle', canvas, { floor: state.floor, save: state.saveData });
+          }
+        }
       } else {
+        // กลับหน้าหอ (hit2)
         if (victory) saveVictory(); else updateAfterDefeat(state.saveData, state.score);
         SCENE.switch('tower', canvas);
       }
