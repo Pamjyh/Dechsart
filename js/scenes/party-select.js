@@ -59,7 +59,11 @@ function initPartySelect(canvas, floor, save) {
     e.preventDefault();
     var dy = partyState._dragY0 - e.touches[0].clientY;
     if (Math.abs(dy) > 8) partyState._dragging = true;
-    partyState.scrollY = Math.max(0, partyState._scrollY0 + dy);
+    // dy is in CSS pixels; convert to canvas units so scrollY stays in the same
+    // coordinate space used by renderPartySelect and hitTestPartyCard.
+    var rect = canvas.getBoundingClientRect();
+    var cssToCanvas = CONFIG.CANVAS.BASE_HEIGHT / rect.height;
+    partyState.scrollY = Math.max(0, partyState._scrollY0 + dy * cssToCanvas);
   }, { passive: false });
 
   addH('touchend', function(e) {
